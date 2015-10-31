@@ -55,7 +55,7 @@ _Note: The preview plot on the bottom is only provided if the dataset is small a
 ## Linear Support Vector Machines
 
 ```Julia
-svm(X, y⃗; nargs...) → SVMFit
+svm(X, y⃗; nargs...) → SVM
 ```
 
 The function `svm` fits a Support Vector Machine (SVM) to the given training data `X` and `y⃗`.

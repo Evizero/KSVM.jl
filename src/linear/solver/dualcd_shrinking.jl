@@ -64,7 +64,7 @@
 # - dense arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:SqrL2Reg}(
+function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
     spec::CSVM{TKernel, TLoss, TReg},
     X::StridedMatrix, y⃗::StridedVector,
     ::DualCD{true},
@@ -281,7 +281,7 @@ end
 # - sparse arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:SqrL2Reg}( 
+function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}( 
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{true},

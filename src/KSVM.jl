@@ -23,21 +23,17 @@ import Base: print, show, convert
 export
 
     HingeLoss,
-    SqrHingeLoss,
+    L1HingeLoss,
+    L2HingeLoss,
     EpsilonInsLoss,
-    SmoothedHingeLoss,
-    SqrSmoothedHingeLoss,
+    SmoothedL1HingeLoss,
     ModifiedHuberLoss,
 
     isclassifier,
     decision_function,
 
     L1Reg,
-    SqrL2Reg,
-
-    hingereg,
-    sqrhingereg,
-    smoothedhingereg,
+    L2Reg,
 
     DualCD,
     DualCDWithShrinking,
@@ -80,6 +76,7 @@ export
     svm
 
 
+include("deprecate/bridge.jl")
 include("common.jl")
 include("classencoding.jl")
 include("io.jl")
@@ -89,7 +86,6 @@ include("svm_model.jl")
 include("svc_svr.jl")
 include("fit.jl")
 include("interface.jl")
-include("linear/primal.jl")
 include("linear/solver/dualcd.jl")
 include("linear/solver/dualcd_shrinking.jl")
 

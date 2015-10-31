@@ -50,8 +50,8 @@ end
 
 function CSVM{TReg<:Regularizer}(;
               kernel::Kernel = ScalarProductKernel(),
-              loss::Loss = SqrHingeLoss(),
-              regtype::Type{TReg} = SqrL2Reg,
+              loss::Loss = L2HingeLoss(),
+              regtype::Type{TReg} = L2Reg,
               C::Real = 1)
   reg = TReg(Float64(1 / C))
   CSVM{typeof(kernel), typeof(loss), typeof(reg)}(kernel, loss, reg)

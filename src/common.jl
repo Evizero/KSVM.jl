@@ -1,12 +1,10 @@
-typealias SvmLoss Union{EpsilonInsLoss, HingeLoss, SqrHingeLoss, SmoothedHingeLoss, SqrSmoothedHingeLoss, ModifiedHuberLoss}
-typealias SvmClassifierLoss Union{HingeLoss, SqrHingeLoss, SmoothedHingeLoss, SqrSmoothedHingeLoss, ModifiedHuberLoss}
-typealias SvmL1orL2Loss Union{HingeLoss, SqrHingeLoss}
+typealias SvmL1orL2Loss Union{L1HingeLoss, L2HingeLoss}
 typealias LinSvmPred Union{LinearPred, AffinePred, MvLinearPred, MvAffinePred}
 
 # ==========================================================================
 # Special solver for SVM problems
 
-abstract SvmDescentSolver <: DescentSolver
+abstract SvmOptimizer <: DescentSolver
 
 # ==========================================================================
 # Typed problem definition for returning the primal or dual solution
@@ -26,8 +24,8 @@ type MvNotNativelyHandled <: Exception end
 # Functions to dtermine the interpretation of the loss
 
 isclassifier(::Loss) = false
-isclassifier(::SvmClassifierLoss) = true
-decision_function(::SvmClassifierLoss) = sign
+isclassifier(::MarginBasedLoss) = true
+decision_function(::MarginBasedLoss) = sign
 
 # ==========================================================================
 # These functions make sure that if no callback is defined, then the empty

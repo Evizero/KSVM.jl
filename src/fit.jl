@@ -2,8 +2,8 @@
 # General low-level interface to fit Kernel-SVMs
 
 function fit(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector;
-             solver::Solver = DualCD(),
-             loss::Loss = SqrHingeLoss(),
+             solver::Optimizer = DualCD(),
+             loss::Loss = L2HingeLoss(),
              nargs...)
   isclassifier(loss) || error()
   encoding = SignedClassEncoding(y⃗)
@@ -15,7 +15,7 @@ end
 # --------------------------------------------------------------------------
 
 function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-             solver::Solver = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
+             solver::Optimizer = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
              nargs...)
   fit(spec, X, y⃗, solver; nargs...)
 end
@@ -25,7 +25,7 @@ end
 # For them it is possible to request the primal or dual solution
 
 function fit{T<:Real}(spec::LinearSVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-                      solver::Solver = DualCD(),
+                      solver::Optimizer = DualCD(),
                       dual::Bool = false,
                       nargs...)
   native_model = fit(spec, X, y⃗, solver; dual = dual, nargs...)
@@ -80,7 +80,7 @@ end
 function fit{PM<:Union{MvLinearPred, MvAffinePred},T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
-    ::SvmDescentSolver,
+    ::SvmOptimizer,
     ::PM;
     nargs...)
   throw(MvNotNativelyHandled())
@@ -91,7 +91,7 @@ end
 function fit{T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
-    solver::SvmDescentSolver,
+    solver::SvmOptimizer,
     ::PredictionModel;
     nargs...)
   throw(ArgumentError("The types of the given arguments are not compatible with $(typeof(solver))"))

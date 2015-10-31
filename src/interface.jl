@@ -17,7 +17,7 @@ used for training the SVM in the primal/dual.
 Usage
 ======
 
-    svm(X, y; solver = DualCD(), loss = SqrHingeLoss(), regtype = SqrL2Reg, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, armijo = 0.5, beta = 0.5, callback = nothing, verbosity = :none, nargs...)
+    svm(X, y; solver = DualCD(), loss = HingeLoss(), regtype = L2Reg, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, armijo = 0.5, beta = 0.5, callback = nothing, verbosity = :none, nargs...)
 
     svm(X, Y; nargs...) do t, alpha, v, g
       # this is the callback function
@@ -40,15 +40,15 @@ In contrast to other frameworks, the algorithm does not determine if the solutio
 of the primal or dual problem is returned (see Details).
 
 - **`loss`** : The utilized loss function. The typical loss functions for SVMs are
-`HingeLoss()` (L1-SVM), `SqrHingeLoss()` (L2-SVM), or `SmoothedHingeLoss(h)` for classification,
-and `EpsilonInsensitiveLoss(e)` for support vector regression.
+`HingeLoss()` (L1-SVM), `L2HingeLoss()` (L2-SVM), or `SmoothedL1HingeLoss(h)` for classification,
+and `EpsilonInsLoss(e)` or `L2EpsilonInsLoss(e)` for support vector regression.
 Note that in general each solvers is only able to deal with a subset of those
 loss functions and some combinations might not be supported.
 For example the implementation of `DualCD` does only support
-`HingeLoss` and `SqrHingeLoss`.
+`HingeLoss` and `L2HingeLoss`.
 
 - **`regtype`** : The type of regularization that should be used. In general this can either
-be `L1Reg` or `SqrL2Reg`. Note that not all solver support `L1Reg`.
+be `L1Reg` or `L2Reg`. Note that not all solver support `L1Reg`.
 
 - **`bias`** : The scaling factor of the bias. If set to 0, no intercept will be fitted.
 
@@ -69,22 +69,15 @@ current (and probably suboptimal) solution.
 
 - **`grtol`** : Specifies the tolerance for the change of the gradient norm.
 
-- **`armijo`** : Specifies the Armijo coefficient that is used in linesearch.
-
-- **`beta`** : Specifies the back-tracking ratio that is used in linesearch.
-
-- **`callback`** : The optional callback function `f(i, w, v, G)`, which has the same signature
-as - and is thus compatible with - Regression.jl. If a callback is specified, then it will be called
+- **`callback`** : The optional callback function with signature `f(i, w, v, G)`. If a callback is specified, then it will be called
 every iteration with the following four parameters in order:
 1) `i` … the current iteration number,
 2) `w` … the current coefficients (i.e. α if dual=true, or θ if dual=false),
 3) `v` … the current objective value
 4) `G` … the current gradient.
-Note: Some solver support early stopping if the callback function returns the symbol `:stop`.
+Note: Some solver support early stopping if the callback function returns the symbol `:Exit`.
 
-- **`verbosity`** : Instead of (or additional to) the callback function, the user can specify
-the level of training information that should be written to STDOUT.
-Can be one of `:none` (default), `:iter`, or `:final`.
+- **`show_trace`** : Instead of (or additional to) the callback function, the user can enable the output of the training information to STDOUT.
 
 - **`nargs...`** : Additional named arguments that are passed unchecked to the specified solver.
 This functionality can be used to pass around special arguments that the library does not natively implement.
@@ -118,11 +111,11 @@ Examples
     using KSVM
     using RDatasets
     iris = dataset("datasets", "iris")
-    X = convert(Array, iris[:, 1:4])'  # The observations have to be in the columns
-    y = [species == "setosa" ? 1.0 : -1.0 for species in iris[:Species]] # make sure yᵢ ∈ {-1, 1} ∀ i
-    train = randbool(size(X,2))        # Split training and testset
-    model = svm(X[:,train], y[train])  # Fit the linear SVM
-    accuracy = countnz(classify(model, X[:,~train]) .== y[~train]) / countnz(~train)
+    X = convert(Array, iris[1:100, 1:2])'  # The observations have to be in the columns
+    y = iris[1:100, :Species]
+    train = bitrand(size(X,2))             # Split training and testset
+    model = svm(X[:, train], y[train])     # Fit the linear SVM
+    acc = accuracy(model, X[:, ~train], y[~train])
 
 ### Random Data (adapted example from Regression.jl by Dahua Lin)
 
@@ -145,9 +138,9 @@ ACM, 2008. DOI=10.1145/1390156.1390208, http://doi.acm.org/10.1145/1390156.13902
 function svm{TReg<:Regularizer}(
     X::AbstractMatrix, y⃗::AbstractVector;
     kernel::Kernel = ScalarProductKernel(),
-    solver::Solver = DualCD(),
-    loss::Loss = SqrHingeLoss(),
-    regtype::Type{TReg} = SqrL2Reg,
+    solver::Optimizer = DualCD(),
+    loss::Loss = L2HingeLoss(),
+    regtype::Type{TReg} = L2Reg,
     C::Real = 1.,
     nargs...)
   spec = CSVM(kernel = kernel,

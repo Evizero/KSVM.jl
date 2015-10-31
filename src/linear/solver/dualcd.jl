@@ -62,7 +62,7 @@
 # Specify the custom linear SVM solver
 
 """
-`DualCD <: SvmDescentSolver`
+`DualCD <: SvmOptimizer`
 
 Description
 ============
@@ -82,7 +82,7 @@ References
 linear SVM." Proceedings of the 25th international conference on Machine learning.
 ACM, 2008. DOI=10.1145/1390156.1390208, http://doi.acm.org/10.1145/1390156.1390208
 """
-immutable DualCD{T} <: SvmDescentSolver
+immutable DualCD{T} <: SvmOptimizer
   shrinking::Bool
   DualCD() = new(T)
 end
@@ -99,7 +99,7 @@ show(io::IO, ::DualCD{true}) = print(io, "DualCD(shrinking = true)")
 # - dense arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:SqrL2Reg}(
+function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
     spec::CSVM{TKernel, TLoss, TReg},
     X::StridedMatrix, y⃗::StridedVector,
     ::DualCD{false},
@@ -281,7 +281,7 @@ end
 # - sparse arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:SqrL2Reg}( 
+function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}( 
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{false},
