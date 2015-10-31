@@ -1,11 +1,10 @@
 # ==========================================================================
 # General low-level interface to fit Kernel-SVMs
 
-function fit(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector;
-             solver::Optimizer = DualCD(),
-             loss::Loss = L2HingeLoss(),
+@inline function fit(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector;
+             solver::SvmSolver = DualCD(),
+             loss::MarginBasedLoss = L2HingeLoss(),
              nargs...)
-  isclassifier(loss) || error()
   encoding = SignedClassEncoding(y⃗)
   t = labelencode(encoding, y⃗)
   model = fit(spec, X, t; solver = solver, loss = loss, nargs...)
@@ -14,8 +13,8 @@ end
 
 # --------------------------------------------------------------------------
 
-function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-             solver::Optimizer = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
+@inline function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
+             solver::SvmSolver = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
              nargs...)
   fit(spec, X, y⃗, solver; nargs...)
 end
@@ -25,7 +24,7 @@ end
 # For them it is possible to request the primal or dual solution
 
 function fit{T<:Real}(spec::LinearSVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-                      solver::Optimizer = DualCD(),
+                      solver::SvmSolver = DualCD(),
                       dual::Bool = false,
                       nargs...)
   native_model = fit(spec, X, y⃗, solver; dual = dual, nargs...)
@@ -48,19 +47,14 @@ end
 # ==========================================================================
 # This in-between function will compute the appropriate prediction function
 
-function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T}, solver::Solver;
+function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T}, solver::SvmSolver;
                       bias::Real = 1.,
                       nargs...)
   d, l = size(X)
   l == length(y⃗) || throw(DimensionMismatch("X and y⃗ have to have the same number of observations (columns)"))
-  predmodel = if isclassifier(spec.loss) && !is_univariate(y⃗)
-    k = maximum(y⃗)
-    bias == zero(bias) ? MvLinearPred(d, k): MvAffinePred(d, k, Float64(bias))
-  else
-    bias == zero(bias) ? LinearPred(d): AffinePred(d, Float64(bias))
-  end
-  solution = fit(spec, X, y⃗, solver, predmodel; nargs...)
-  svmModel(spec, solution, predmodel, X, y⃗)
+  predtype = prediction_type(spec.loss, y⃗, bias)
+  solution = fit(spec, X, y⃗, solver, predtype; nargs...)
+  svmModel(spec, solution, LinearPredictor(bias), X, y⃗)
 end
 
 # ==========================================================================
@@ -77,10 +71,10 @@ end
 # ==========================================================================
 # Fallback for svm specific solver that are not implemented (for the given arguments)
 
-function fit{PM<:Union{MvLinearPred, MvAffinePred},T<:Real}(
+function fit{PM<:MvPredicton,T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
-    ::SvmOptimizer,
+    ::SvmSolver,
     ::PM;
     nargs...)
   throw(MvNotNativelyHandled())
@@ -91,38 +85,8 @@ end
 function fit{T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
-    solver::SvmOptimizer,
-    ::PredictionModel;
+    solver::SvmSolver,
+    ::PredictionType;
     nargs...)
   throw(ArgumentError("The types of the given arguments are not compatible with $(typeof(solver))"))
-end
-
-# ==========================================================================
-# Fallback for Regression.jl solver to solve primal problem
-
-function fit{TFun<:Union{Function,Void},T<:Real}(
-    spec::SVMSpec,
-    X::AbstractMatrix, y⃗::AbstractVector{T},
-    solver::Solver,
-    predmodel::PredictionModel;
-    callback::TFun = nothing,
-    maxiter::Real = 1000,
-    ftol::Real = 1.0e-6,
-    xtol::Real = 1.0e-6,
-    grtol::Real = 1.0e-9,
-    armijo::Real = .5,
-    beta::Real = .5,
-    verbosity::Symbol = :none,
-    nargs...)
-  options = Regression.Options(maxiter = maxiter, ftol = ftol, xtol = xtol,
-                               grtol = grtol, armijo = armijo, beta = beta,
-                               verbosity = verbosity)
-  cb = TFun <: Function ? callback: Regression.no_op
-  bias = (typeof(predmodel) <: Union{LinearPred, MvLinearPred}) ? zero(Float64) : Float64(predmodel.bias)
-  model = Regression.UnivariateRegression(spec.loss, X, y⃗; bias = bias)
-  Regression.solve(model,
-                   solver = solver,
-                   reg = spec.reg,
-                   options = options,
-                   callback = cb)
 end

@@ -2,10 +2,10 @@ abstract SVM{TSpec <: SVMSpec} <: RegressionModel
 
 # ==========================================================================
 
-svmModel(spec::SVMSpec, solution::Solution, predmodel::PredictionModel, X::AbstractMatrix, Y::AbstractArray) =
+svmModel(spec::SVMSpec, solution::PrimalSolution, predmodel::Predictor, X::AbstractMatrix, Y::AbstractArray) =
   primalSVMModel(spec, solution, predmodel, X, Y)
 
-svmModel(spec::SVMSpec, solution::DualSolution, predmodel::PredictionModel, X::AbstractMatrix, Y::AbstractArray) =
+svmModel(spec::SVMSpec, solution::DualSolution, predmodel::Predictor, X::AbstractMatrix, Y::AbstractArray) =
   dualSVMModel(spec, solution, predmodel, X, Y)
 
 # ==========================================================================
@@ -74,9 +74,9 @@ abstract PrimalSVM{TSpec<:SVMSpec} <: SVM{TSpec}
 
 See `PrimalSVM`
 """
-type DensePrimalSVM{TSpec<:SVMSpec, TPred<:LinSvmPred, XT<:DenseMatrix, YT<:AbstractVector} <: PrimalSVM{TSpec}
+type DensePrimalSVM{TSpec<:SVMSpec, TDetails<:PrimalSolution, TPred<:Predictor, XT<:DenseMatrix, YT<:AbstractVector} <: PrimalSVM{TSpec}
   params::TSpec
-  details::Solution
+  details::TDetails
   predmodel::TPred
   nsv::Int
   svindex::Vector{Int}
@@ -89,9 +89,9 @@ end
 
 See `PrimalSVM`
 """
-type SparsePrimalSVM{TSpec<:SVMSpec, TPred<:LinSvmPred, XT<:AbstractSparseMatrix, YT<:AbstractVector} <: PrimalSVM{TSpec}
+type SparsePrimalSVM{TSpec<:SVMSpec, TDetails<:PrimalSolution, TPred<:Predictor, XT<:AbstractSparseMatrix, YT<:AbstractVector} <: PrimalSVM{TSpec}
   params::TSpec
-  details::Solution
+  details::TDetails
   predmodel::TPred
   nsv::Int
   svindex::Vector{Int}
@@ -170,7 +170,7 @@ abstract DualSVM{TSpec<:SVMSpec} <: SVM{TSpec}
 
 See `DualSVM`
 """
-type DenseDualSVM{TSpec<:SVMSpec, TPred<:LinSvmPred, XT<:DenseMatrix, YT<:AbstractVector} <: DualSVM{TSpec}
+type DenseDualSVM{TSpec<:SVMSpec, TPred<:Predictor, XT<:DenseMatrix, YT<:AbstractVector} <: DualSVM{TSpec}
   params::TSpec
   details::DualSolution
   predmodel::TPred
@@ -188,7 +188,7 @@ end
 
 See `DualSVM`
 """
-type SparseDualSVM{TSpec<:SVMSpec, TPred<:LinSvmPred, XT<:AbstractSparseMatrix, YT<:AbstractVector} <: DualSVM{TSpec}
+type SparseDualSVM{TSpec<:SVMSpec, TPred<:Predictor, XT<:AbstractSparseMatrix, YT<:AbstractVector} <: DualSVM{TSpec}
   params::TSpec
   details::DualSolution
   predmodel::TPred
@@ -203,34 +203,34 @@ end
 
 # ==========================================================================
 
-function primalSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
+function primalSVMModel{TSpec<:SVMSpec, TPred<:Predictor, TReal<:Real}(
     params::TSpec,
-    s::Solution,
+    s::PrimalSolution,
     predmodel::TPred,
     Xtrain::StridedMatrix,
     Ytrain::AbstractVector{TReal})
   n = size(Xtrain, 2)
-  p = EmpiricalRisks.predict(predmodel, s.sol, Xtrain)
+  p = value(predmodel, Xtrain, minimizer(s))
   l = zeros(n)
   @inbounds for i = 1:n
-    lc = EmpiricalRisks.value(params.loss, p[i] - sign(p[i]) * 0.0005, Float64(Ytrain[i]))
-    lr = EmpiricalRisks.value(params.loss, p[i] + sign(p[i]) * 0.0005, Float64(Ytrain[i]))
+    lc = value(params.loss, Float64(Ytrain[i]), p[i] - sign(p[i]) * 0.0005)
+    lr = value(params.loss, Float64(Ytrain[i]), p[i] + sign(p[i]) * 0.0005)
     l[i] = lc != 0 || lr != 0
   end
   svindex = find(l)
   nsv = length(svindex)
-  DensePrimalSVM{TSpec, TPred, typeof(Xtrain), typeof(Ytrain)}(params, s, predmodel, nsv, svindex, Xtrain, Ytrain)
+  DensePrimalSVM{TSpec, typeof(s), TPred, typeof(Xtrain), typeof(Ytrain)}(params, s, predmodel, nsv, svindex, Xtrain, Ytrain)
 end
 
-function primalSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
+function primalSVMModel{TSpec<:SVMSpec, TPred<:Predictor, TReal<:Real}(
     params::TSpec,
-    s::Solution,
+    s::PrimalSolution,
     predmodel::TPred,
     Xtrain::AbstractSparseMatrix,
     Ytrain::AbstractVector{TReal})
   n = size(Xtrain, 2)
-  w = s.sol
-  p = if typeof(predmodel) <: AffinePred
+  w = minimizer(s)
+  p = if typeof(predmodel) <: LinearPredictor{true}
     fill(w[end] * predmodel.bias, size(Ytrain))
   else
     zeros(size(Ytrain))
@@ -245,23 +245,23 @@ function primalSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
   end
   l = zeros(n)
   @inbounds for i = 1:n
-    lc = EmpiricalRisks.value(params.loss, p[i] - sign(p[i]) * 0.0005, Float64(Ytrain[i]))
-    lr = EmpiricalRisks.value(params.loss, p[i] + sign(p[i]) * 0.0005, Float64(Ytrain[i]))
+    lc = value(params.loss, Float64(Ytrain[i]), p[i] - sign(p[i]) * 0.0005,)
+    lr = value(params.loss, Float64(Ytrain[i]), p[i] + sign(p[i]) * 0.0005)
     l[i] = lc != 0 || lr != 0
   end
   svindex = find(l)
   nsv = length(svindex)
-  SparsePrimalSVM{TSpec, TPred, typeof(Xtrain), typeof(Ytrain)}(params, s, predmodel, nsv, svindex, Xtrain, Ytrain)
+  SparsePrimalSVM{TSpec, typeof(s), TPred, typeof(Xtrain), typeof(Ytrain)}(params, s, predmodel, nsv, svindex, Xtrain, Ytrain)
 end
 
-function dualSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
+function dualSVMModel{TSpec<:SVMSpec, TPred<:Predictor, TReal<:Real}(
     params::TSpec,
     s::DualSolution,
     p::TPred,
     Xtrain::StridedMatrix,
     Ytrain::AbstractVector{TReal})
-  svindex = find(s.alpha)
-  alpha = s.alpha[svindex]
+  svindex = find(minimizer(s))
+  alpha = minimizer(s)[svindex]
   nsv = length(alpha)
   Xsv = Array(ContiguousView{Float64,1,Array{Float64,2}}, nsv)
   @inbounds for i in 1:nsv
@@ -271,14 +271,14 @@ function dualSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
   DenseDualSVM{TSpec, TPred, typeof(Xtrain), typeof(Ytrain)}(params, s, p, nsv, alpha, svindex, Xsv, Ysv, Xtrain, Ytrain)
 end
 
-function dualSVMModel{TSpec<:SVMSpec, TPred<:LinSvmPred, TReal<:Real}(
+function dualSVMModel{TSpec<:SVMSpec, TPred<:Predictor, TReal<:Real}(
     params::TSpec,
     s::DualSolution,
     p::TPred,
     Xtrain::AbstractSparseMatrix,
     Ytrain::AbstractVector{TReal})
-  svindex = find(s.alpha)
-  alpha = s.alpha[svindex]
+  svindex = find(minimizer(s))
+  alpha = minimizer(s)[svindex]
   nsv = length(alpha)
   Xsv = Xtrain
   Ysv = Ytrain[svindex]
@@ -287,41 +287,54 @@ end
 
 # ==========================================================================
 
-labels(svm::SVM) = labels(svc_or_svr(svm))
-nobs(fit::SVM) = length(fit.Ytrain)
-features(fit::SVM) = fit.Xtrain
-targets(fit::SVM) = fit.Ytrain
-model_response(fit::SVM) = fit.Ytrain
+@inline labels{TSpec<:SVCSpec}(svm::SVM{TSpec}) = [-1., 1]
+@inline nobs(fit::SVM) = length(fit.Ytrain)
+@inline features(fit::SVM) = fit.Xtrain
+@inline targets(fit::SVM) = fit.Ytrain
+@inline model_response(fit::SVM) = fit.Ytrain
 
-isclassifier(fit::SVM) = isclassifier(fit.params)
-decision_function(fit::SVM) = decision_function(fit.params)
+@inline details(fit::SVM) = fit.details
+@inline isconverged(fit::SVM) = isconverged(details(fit))
+@inline iterations(fit::SVM) = iterations(details(fit))
+@inline params(fit::SVM) = fit.params
+@inline minimum(fit::SVM) = minimum(details(fit))
+@inline minimizer(fit::SVM) = minimizer(details(fit))
+@inline nsv(fit::SVM) = fit.nsv
+@inline svindex(fit::SVM) = fit.svindex
+@inline intercept(fit::SVM) = typeof(predmodel(fit)) <: LinearPredictor{true}
+@inline predmodel(fit::SVM) = fit.predmodel
+@inline coef(fit::PrimalSVM) = coef(details(fit))
+@inline coef(fit::DualSVM) = fit.alpha
+@inline bias(fit::DualSVM) = bias(details(fit))
+@inline xsv(fit::DualSVM) = fit.Xsv
+@inline ysv(fit::DualSVM) = fit.Ysv
 
-details(fit::SVM) = fit.details
-isconverged(fit::SVM) = fit.details.converged
-iterations(fit::SVM) = fit.details.niters
-params(fit::SVM) = fit.params
-fval(fit::SVM) = fit.details.fval
-nsv(fit::SVM) = fit.nsv
-svindex(fit::SVM) = fit.svindex
-intercept(fit::SVM) = typeof(predmodel(fit)) <: Union{AffinePred, MvAffinePred}
-predmodel(fit::SVM) = fit.predmodel
-coef(fit::PrimalSVM) = fit.details.sol
-coef(fit::DualSVM) = fit.alpha
-bias(fit::DualSVM) = fit.details.bias
-xsv(fit::DualSVM) = fit.Xsv
-ysv(fit::DualSVM) = fit.Ysv
+@inline predict(fit::SVM) = predict(fit, features(fit))
+@inline classify{TSpec<:SVCSpec}(svm::SVM{TSpec}) = classify(svm, features(svm))
+@inline accuracy{TSpec<:SVCSpec}(svm::SVM{TSpec}) = accuracy(svm, features(svm), targets(svm))
 
-predict(fit::SVM) = predict(fit, features(fit))
-accuracy(fit::SVM) = accuracy(fit, features(fit), targets(fit))
+function classify{TSpec<:SVCSpec}(svm::SVM{TSpec}, X)
+  ŷ = predict(svm, X)
+  t = ndims(ŷ) == 1 ? sign(ŷ) : vec(mapslices(indmax, ŷ, 1))
+  t
+end
+
+function accuracy{TSpec<:SVCSpec}(svm::SVM{TSpec}, X, y)
+  n = size(X,2)
+  n == length(y) || throw(DimensionMismatch("X and y have to have the same number of observations"))
+  ȳ = classify(svm, X)
+  countnz(ȳ .== y) / n
+end
 
 function predict(fit::PrimalSVM, X::DenseMatrix)
-  EmpiricalRisks.predict(predmodel(fit), details(fit).sol, X)
+  p = value(predmodel(fit), X, minimizer(details(fit)))
+  size(p, 1) == 1 ? vec(p) : p
 end
 
 function predict(fit::PrimalSVM, X::AbstractSparseMatrix)
   n = size(X,2)
-  w = details(fit).sol
-  p = if typeof(predmodel(fit)) <: AffinePred
+  w = minimizer(details(fit))
+  p = if typeof(predmodel(fit)) <: LinearPredictor{true}
     fill(w[end] * predmodel(fit).bias, size(targets(fit)))
   else
     zeros(size(targets(fit)))
@@ -342,7 +355,7 @@ function predict(fit::DenseDualSVM, X::AbstractMatrix)
   result = zeros(n)
   @inbounds for i in 1:n
     for j in 1:nsv(fit)
-      result[i] += fit.alpha[j] * fit.Ysv[j] * dot(fit.Xsv[j], view(X,:,i))
+      result[i] += coef(fit)[j] * ysv(fit)[j] * dot(xsv(fit)[j], view(X,:,i))
     end
     result[i] += bias(fit)
   end
@@ -354,31 +367,20 @@ function predict(fit::SparseDualSVM, X::AbstractMatrix)
   result = zeros(n)
   tmp = 0.
   @inbounds for i in 1:n
-    for j in 1:fit.nsv
-      tstart = fit.Xsv.colptr[fit.svindex[j]]
-      tstop  = fit.Xsv.colptr[fit.svindex[j]+1] - 1
+    for j in 1:nsv(fit)
+      tstart = xsv(fit).colptr[svindex(fit)[j]]
+      tstop  = xsv(fit).colptr[svindex(fit)[j]+1] - 1
       tmp = 0.
       for k = tstart:tstop
-        tmp += X[fit.Xsv.rowval[k],i] * fit.Xsv.nzval[k]
+        tmp += X[xsv(fit).rowval[k],i] * xsv(fit).nzval[k]
       end
-      tmp *= fit.Ysv[j]
-      tmp *= fit.alpha[j]
+      tmp *= ysv(fit)[j]
+      tmp *= coef(fit)[j]
       result[i] += tmp
     end
     result[i] += bias(fit)
   end
   result
-end
-
-function classify(fit::SVM, args...)
-  classify(svc_or_svr(fit), args...)
-end
-
-function accuracy(fit::SVM, X, y)
-  n = size(X,2)
-  n == length(y) || throw(DimensionMismatch("X and y have to have the same number of observations"))
-  ȳ = classify(fit, X)
-  countnz(ȳ .== y) / n
 end
 
 # ==========================================================================
@@ -387,52 +389,108 @@ end
 function convert{TSpec <: SVMSpec{ScalarProductKernel{Float64}}}(
     ::Type{PrimalSVM},
     dual::DualSVM{TSpec})
-  l = length(dual.Xsv)
-  d = length(dual.Xsv[1])
+  l = length(xsv(dual))
+  d = length(xsv(dual)[1])
   # w = ∑ yᵢαᵢxᵢ
   w = zeros(d+1)
   for j = 1:d
     for i = 1:l
-      @inbounds w[j] += dual.Ysv[i] * dual.alpha[i] * dual.Xsv[i][j]
+      @inbounds w[j] += ysv(dual)[i] * coef(dual)[i] * xsv(dual)[i][j]
     end
   end
-  sol = if typeof(dual.predmodel) <: AffinePred
-    w[end] = dual.details.bias
-    Solution(w, dual.details.fval, dual.details.niters, dual.details.converged)
+  sol = if typeof(predmodel(dual)) <: LinearPredictor{true}
+    w[end] = bias(dual)
+    PrimalSolution(w, minimum(dual), iterations(dual), isconverged(dual))
   else
-    Solution(w[1:d], dual.details.fval, dual.details.niters, dual.details.converged)    
+    PrimalSolution(w[1:d], minimum(dual), iterations(dual), isconverged(dual))    
   end
-  svmModel(dual.params, sol, dual.predmodel, dual.Xtrain, dual.Ytrain)
+  svmModel(params(dual), sol, predmodel(dual), features(dual), targets(dual))
 end
 
 function convert{TSpec <: SVMSpec{ScalarProductKernel{Float64}}}(
     ::Type{DualSVM},
     primal::PrimalSVM{TSpec})
-  k = size(primal.Xtrain, 1)
-  n = size(primal.Xtrain, 2)
-  nsv = primal.nsv
-  svindex = primal.svindex
+  k = size(features(primal), 1)
+  n = size(features(primal), 2)
+  nsv = nsv(primal)
+  svindex = svindex(primal)
   nsv <= k || throw(DimensionMismatch("Converting to dual solution is only possible if there are less (or equal) support vectors than there are features"))
   Q = zeros(k, nsv)
   for i = 1:nsv
     for j = 1:k
-      @inbounds Q[j, i] = primal.Ytrain[svindex[i]] * primal.Xtrain[j, svindex[i]]
+      @inbounds Q[j, i] = targets(primal)[svindex[i]] * features(primal)[j, svindex[i]]
     end
   end
-  w = primal.details.sol[1:k]
+  # DOESN'T WORK FOR NO BIAS
+  w = minimizer(details(primal))[1:k]
   α = Q \ w
   alpha = zeros(n)
   alpha[svindex] = α
-  sol = DualSolution(alpha, primal.details.sol[end], primal.details.fval, primal.details.niters, primal.details.converged)
-  svmModel(primal.params, sol, primal.predmodel, primal.Xtrain, primal.Ytrain)
+  sol = DualSolution(alpha, minimizer(details(primal))[end], minimum(primal), iterations(primal), isconverged(primal))
+  svmModel(params(primal), sol, predmodel(primal), features(primal), targets(primal))
 end
 
 # ==========================================================================
 # Plotting
 
-function scatterplot{TSpec <: SVMSpec{ScalarProductKernel{Float64}}}(
-    fit::SVM{TSpec}, args...; nargs...)
-  scatterplot(svc_or_svr(fit), args...; nargs...)
+function scatterplot{TSpec<:SVCSpec}(
+    fit::PrimalSVM{TSpec};
+    title::AbstractString = "Primal SVM Classification Plot",
+    xlim = [0.,0.],
+    ylim = [0.,0.],
+    lbl = map(string, labels(fit)),
+    nargs...)
+  size(features(fit),1) == 2 || throw(DimensionMismatch("Can only plot the SVM classification for a two-dimensional featurespace (i.e. size(X,1) == 2)"))
+  intercept_fit = typeof(predmodel(fit)) <: LinearPredictor{true}
+  offset = intercept_fit ? -(minimizer(details(fit))[3] * predmodel(fit).bias) / minimizer(details(fit))[2] : 0.
+  slope = -minimizer(details(fit))[1] / minimizer(details(fit))[2]
+  x1 = vec(view(features(fit), 1, :))
+  x2 = vec(view(features(fit), 2, :))
+  x1sv = x1[svindex(fit)]
+  x2sv = x2[svindex(fit)]
+  xmin = minimum(x1); xmax = maximum(x1)
+  ymin = minimum(x2); ymax = maximum(x2)
+  xlim = xlim == [0.,0.] ? [xmin, xmax] : xlim
+  ylim = ylim == [0.,0.] ? [ymin, ymax] : ylim
+  notalphaindex = setdiff(1:size(features(fit),2), svindex(fit))
+  x1 = x1[notalphaindex]
+  x2 = x2[notalphaindex]
+  y = targets(fit)[notalphaindex]
+  fig = scatterplot(x1[y.<0], x2[y.<0]; title = title, xlim = xlim, ylim = ylim, name = lbl[1], nargs...)
+  scatterplot!(fig, x1[y.>0], x2[y.>0], name = lbl[2])
+  scatterplot!(fig, x1sv, x2sv, color = :yellow, name = "support vectors")
+  lineplot!(fig, offset, slope, color = :white)
+  xlabel!(fig, "X₁")
+  ylabel!(fig, "X₂")
+  fig
+end
+
+function scatterplot{TSpec<:SVCSpec}(
+    fit::DualSVM{TSpec};
+    title::AbstractString = "Dual SVM Classification Plot",
+    xlim = [0.,0.],
+    ylim = [0.,0.],
+    lbl = map(string, labels(fit)),
+    nargs...)
+  size(features(fit),1) == 2 || throw(DimensionMismatch("Can only plot the SVM classification for a two-dimensional featurespace (i.e. size(X,1) == 2)"))
+  x1 = vec(view(features(fit), 1, :))
+  x2 = vec(view(features(fit), 2, :))
+  x1sv = x1[svindex(fit)]
+  x2sv = x2[svindex(fit)]
+  xmin = minimum(x1); xmax = maximum(x1)
+  ymin = minimum(x2); ymax = maximum(x2)
+  xlim = xlim == [0.,0.] ? [xmin, xmax] : xlim
+  ylim = ylim == [0.,0.] ? [ymin, ymax] : ylim
+  notalphaindex = setdiff(1:size(features(fit),2), svindex(fit))
+  x1 = x1[notalphaindex]
+  x2 = x2[notalphaindex]
+  y = targets(fit)[notalphaindex]
+  fig = scatterplot(x1[y.<0], x2[y.<0]; title = title, xlim = xlim, ylim = ylim, name = lbl[1], nargs...)
+  scatterplot!(fig, x1[y.>0], x2[y.>0], name = lbl[2])
+  scatterplot!(fig, x1sv, x2sv, color = :yellow, name = "support vectors")
+  xlabel!(fig, "X₁")
+  ylabel!(fig, "X₂")
+  fig
 end
 
 # ==========================================================================
@@ -440,13 +498,13 @@ end
 
 function _showprimal(io::IO, fit)
   _printconverged(io, isconverged(fit), iterations(fit))
-  _printvariable(io, 18, "details()", typeof(details(fit)))
-  _printvariable(io, 18, "isconverged()", isconverged(fit))
-  _printvariable(io, 18, "iterations()", iterations(fit))
+  _printvariable(io, 19, "details()", typeof(details(fit)))
+  _printvariable(io, 19, "isconverged()", isconverged(fit))
+  _printvariable(io, 19, "iterations()", iterations(fit))
   println(io, "\n  ◦  support vector machine:")
   _printvariable(io, 14, "params()", params(fit))
   println(io, "\n  ◦  objective value (f):")
-  _printvariable(io, 14, "fval()", fval(fit))
+  _printvariable(io, 17, "minimum()", minimum(fit))
   println(io, "\n  ◦  fitted coefficients (w⃗):")
   _printvariable(io, 17, "coef()", coef(fit))
   _printvariable(io, 17, "intercept()", intercept(fit))
@@ -454,7 +512,7 @@ function _showprimal(io::IO, fit)
   println(io, "\n  ◦  support vectors (estimated):")
   _printvariable(io, 17, "nsv()", nsv(fit))
   _printvariable(io, 17, "svindex()", svindex(fit))
-  if isclassifier(fit) && size(features(fit),1) == 2 && size(features(fit),2) < 500 && typeof(predmodel(fit)) <: Union{AffinePred, LinearPred}
+  if size(features(fit),1) == 2 && size(features(fit),2) < 500
     println(io, "\n  ◦  classification plot (UnicodePlots.scatterplot(..)):")
     fig = scatterplot(fit, margin = 5, width = 30, height = 10, title = "")
     print(io, fig)
@@ -463,13 +521,13 @@ end
 
 function _showdual(io::IO, fit)
   _printconverged(io, isconverged(fit), iterations(fit))
-  _printvariable(io, 18, "details()", typeof(details(fit)))
-  _printvariable(io, 18, "isconverged()", isconverged(fit))
-  _printvariable(io, 18, "iterations()", iterations(fit))
+  _printvariable(io, 19, "details()", typeof(details(fit)))
+  _printvariable(io, 19, "isconverged()", isconverged(fit))
+  _printvariable(io, 19, "iterations()", iterations(fit))
   println(io, "\n  ◦  support vector machine:")
   _printvariable(io, 14, "params()", params(fit))
   println(io, "\n  ◦  objective value (f):")
-  _printvariable(io, 14, "fval()", fval(fit))
+  _printvariable(io, 17, "minimum()", minimum(fit))
   println(io, "\n  ◦  fitted coefficients (α):")
   _printvariable(io, 17, "coef()", coef(fit))
   intercept(fit) && _printvariable(io, 17, "bias()", bias(fit))
@@ -480,7 +538,7 @@ function _showdual(io::IO, fit)
   _printvariable(io, 17, "svindex()", svindex(fit))
   _printvariable(io, 17, "xsv()", typeof(xsv(fit)))
   _printvariable(io, 17, "ysv()", ysv(fit))
-  if isclassifier(fit) && size(features(fit),1) == 2 && size(features(fit),2) < 500 && typeof(predmodel(fit)) <: Union{AffinePred, LinearPred}
+  if size(features(fit),1) == 2 && size(features(fit),2) < 500
     println(io, "\n  ◦  classification plot (UnicodePlots.scatterplot(..)):")
     fig = scatterplot(fit, margin = 5, width = 30, height = 10, title = "")
     print(io, fig)

@@ -150,11 +150,10 @@ This code is free to use under the terms of the MIT license.
 This package makes heavy use of the following packages in order to provide it's main functionality. To see at full list of utilized packages, please take a look at the REQUIRE file.
 
 - [MLBase.jl](https://github.com/JuliaStats/MLBase.jl)
-- [EmpiricalRisks.jl](https://github.com/lindahua/EmpiricalRisks.jl)
-- [Regression.jl](https://github.com/lindahua/Regression.jl)
+- [LearnBase.jl](https://github.com/Evizero/LearnBase.jl)
 - [MLKernels.jl](https://github.com/trthatcher/MLKernels.jl)
 
-Note that in the future the library will switch from EmpiricalRisks and Regression to LearnBase.jl and Optim.jl as backend
+Early inspiration by [Regression.jl](https://github.com/lindahua/Regression.jl)
 
 ## References
 

@@ -1,11 +1,16 @@
 abstract SVMSpec{TKernel <: Kernel}
 
-typealias LinearSVMSpec{TKernel <: ScalarProductKernel} SVMSpec{TKernel}
+typealias LinearSVMSpec{TKernel<:ScalarProductKernel} SVMSpec{TKernel}
 
-abstract SVMRiskSpec{TKernel<:Kernel, TLoss<:Loss, TReg<:Regularizer} <: SVMSpec{TKernel}
+abstract SVMRiskSpec{TKernel<:Kernel, TLoss<:Loss} <: SVMSpec{TKernel}
+
+typealias SVCSpec{TKernel<:Kernel, TLoss<:MarginBasedLoss} SVMRiskSpec{TKernel, TLoss}
+typealias SVRSpec{TKernel<:Kernel, TLoss<:DistanceBasedLoss} SVMRiskSpec{TKernel, TLoss}
+
+abstract SVMFuncSpec{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMRiskSpec{TKernel, TLoss}
 
 """
-`CSVM <: SVMRiskSpec <: SVMSpec`
+`CSVM <: SVMFuncSpec <: SVMRiskSpec <: SVMSpec`
 
 Description
 ============
@@ -33,32 +38,29 @@ See also
 `PrimalSVM`, `DualSVM`
 
 """
-immutable CSVM{TKernel<:Kernel, TLoss<:Loss, TReg<:Regularizer} <: SVMRiskSpec{TKernel, TLoss, TReg}
+immutable CSVM{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMFuncSpec{TKernel, TLoss, TReg}
   kernel::TKernel
   loss::TLoss
   reg::TReg
   C::Float64
   
   function CSVM(kernel::TKernel, loss::TLoss, reg::TReg)
-    new(kernel, loss, reg, Float64(1 / reg.c))
+    new(kernel, loss, reg, Float64(1 / reg.λ))
   end
 end
 
-function CSVM(kernel::Kernel, loss::Loss, reg::Regularizer)
+function CSVM(kernel::Kernel, loss::Loss, reg::Penalty)
   CSVM{typeof(kernel), typeof(loss), typeof(reg)}(kernel, loss, reg)
 end
 
-function CSVM{TReg<:Regularizer}(;
+function CSVM{TReg<:Penalty}(;
               kernel::Kernel = ScalarProductKernel(),
               loss::Loss = L2HingeLoss(),
-              regtype::Type{TReg} = L2Reg,
+              regtype::Type{TReg} = L2Penalty,
               C::Real = 1)
   reg = TReg(Float64(1 / C))
   CSVM{typeof(kernel), typeof(loss), typeof(reg)}(kernel, loss, reg)
 end
-
-isclassifier(spec::CSVM) = isclassifier(spec.loss)
-decision_function(spec::CSVM) = decision_function(spec.loss)
 
 # ==========================================================================
 # Base.show, Base.print
@@ -68,7 +70,7 @@ function print(io::IO, model::CSVM)
 end
 
 function show(io::IO, model::CSVM)
-  println(io, "$(typeof(model))")
+  println(io, typeof(model))
   _printvariable(io, 9, ".kernel", model.kernel)
   _printvariable(io, 9, ".loss", model.loss)
   _printvariable(io, 9, ".reg", model.reg)

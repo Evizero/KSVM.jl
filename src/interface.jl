@@ -17,7 +17,7 @@ used for training the SVM in the primal/dual.
 Usage
 ======
 
-    svm(X, y; solver = DualCD(), loss = HingeLoss(), regtype = L2Reg, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, armijo = 0.5, beta = 0.5, callback = nothing, verbosity = :none, nargs...)
+    svm(X, y; solver = DualCD(), loss = HingeLoss(), regtype = L2Penalty, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, armijo = 0.5, beta = 0.5, callback = nothing, verbosity = :none, nargs...)
 
     svm(X, Y; nargs...) do t, alpha, v, g
       # this is the callback function
@@ -48,7 +48,7 @@ For example the implementation of `DualCD` does only support
 `HingeLoss` and `L2HingeLoss`.
 
 - **`regtype`** : The type of regularization that should be used. In general this can either
-be `L1Reg` or `L2Reg`. Note that not all solver support `L1Reg`.
+be `L1Penalty` or `L2Penalty`. Note that not all solver support `L1Penalty`.
 
 - **`bias`** : The scaling factor of the bias. If set to 0, no intercept will be fitted.
 
@@ -135,12 +135,12 @@ References
 linear SVM." Proceedings of the 25th international conference on Machine learning.
 ACM, 2008. DOI=10.1145/1390156.1390208, http://doi.acm.org/10.1145/1390156.1390208
 """
-function svm{TReg<:Regularizer}(
+@inline function svm{TReg<:Penalty}(
     X::AbstractMatrix, y⃗::AbstractVector;
     kernel::Kernel = ScalarProductKernel(),
-    solver::Optimizer = DualCD(),
+    solver::SvmSolver = DualCD(),
     loss::Loss = L2HingeLoss(),
-    regtype::Type{TReg} = L2Reg,
+    regtype::Type{TReg} = L2Penalty,
     C::Real = 1.,
     nargs...)
   spec = CSVM(kernel = kernel,
@@ -156,7 +156,7 @@ end
 #   println("Iteration $t: $v")
 # end
 
-function svm(callback::Function,
+@inline function svm(callback::Function,
              X::AbstractMatrix, y⃗::AbstractVector;
              nargs...)
   svm(X, y⃗; callback = callback, nargs...)

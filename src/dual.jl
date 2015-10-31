@@ -2,18 +2,25 @@
 # Unprocessed Solution for the dual problem
 
 immutable DualSolution
-  alpha::Vector{Float64}
+  minimizer::Vector{Float64}
   bias::Float64
-  fval::Float64
-  niters::Int
-  converged::Bool
+  minimum::Float64
+  iterations::Int
+  isconverged::Bool
 end
 
 function Base.show(io::IO, r::DualSolution)
-  println(io, "DualSolution:")
-  println(io, "- alpha:      $(size(r.alpha)) $(typeof(r.alpha))")
-  println(io, "- bias:       $(r.bias)")
-  println(io, "- fval:       $(r.fval)")
-  println(io, "- niters:     $(r.niters)")
-  println(io, "- converged:  $(r.converged)")
+  println(io, typeof(r))
+  _printvariable(io, 14, "minimizer()", minimizer(r))
+  _printvariable(io, 14, "bias()", bias(r))
+  _printvariable(io, 14, "minimum()", minimum(r))
+  _printvariable(io, 14, "iterations()", iterations(r))
+  _printvariable(io, 14, "isconverged()", isconverged(r), newline = false)
 end
+
+coef(s::DualSolution) = s.minimizer
+minimizer(s::DualSolution) = s.minimizer
+Base.minimum(s::DualSolution) = s.minimum
+bias(s::DualSolution) = s.bias
+iterations(s::DualSolution) = s.iterations
+isconverged(s::DualSolution) = s.isconverged

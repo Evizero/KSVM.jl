@@ -1,19 +1,5 @@
 using KSVM
 
-function _predict(sol, X)
-  k = size(X,1)
-  predmodel = EmpiricalRisks.LinearPred(k)
-  EmpiricalRisks.predict(predmodel, sol.sol, X)
-end
-
-function _predictB(sol, X)
-  k = size(X,1)
-  predmodel = EmpiricalRisks.AffinePred(k, 1.)
-  EmpiricalRisks.predict(predmodel, sol.sol, X)
-end
-
-reg = L2Reg(1.0e-2)
-
 #-----------------------------------------------------------
 
 msg("Test interface stability")
@@ -23,7 +9,7 @@ b = hcat(rand(100)+2, rand(100)+0)
 X = vcat(a,b)'
 Y = vcat(ones(100), ones(100)*-1)
 
-@test_throws ArgumentError ret = svm(X, Y, regtype = L1Reg)
+@test_throws ArgumentError ret = svm(X, Y, regtype = L1Penalty)
 
 #-----------------------------------------------------------
 
@@ -60,7 +46,7 @@ model2 = convert(KSVM.PrimalSVM, model1)
 
 msg("Test callback function for primal solution")
 
-ret = svm(X, Y, bias = 1., dual = false, verbosity = :final) do t, w, v, g
+ret = svm(X, Y, bias = 1., dual = false) do t, w, v, g
   @test length(w) == size(X,1) + 1
   @test length(g) == size(X,2) # can't provide grad of w ...
   t % 50 == 0 && msg2("$t : $v", newline = true)
@@ -71,7 +57,7 @@ end
 
 msg("Test callback function for primal solution (sparse)")
 
-ret = svm(sparse(X), Y, bias = 1., dual = false, verbosity = :final) do t, w, v, g
+ret = svm(sparse(X), Y, bias = 1., dual = false) do t, w, v, g
   @test length(w) == size(X,1) + 1
   @test length(g) == size(X,2) # can't provide grad of w ...
   t % 50 == 0 && msg2("$t : $v", newline = true)
@@ -93,7 +79,7 @@ end
 
 msg("Test callback function for dual solution")
 
-ret = svm(X, Y, bias = 1., dual = true, verbosity = :final) do t, alpha, v, g
+ret = svm(X, Y, bias = 1., dual = true) do t, alpha, v, g
   @test length(alpha) == size(X,2)
   @test length(g) == size(X,2)
   t % 50 == 0 && msg2("$t : $v", newline = true)
@@ -104,7 +90,7 @@ end
 
 msg("Test callback function for dual solution (sparse)")
 
-ret = svm(sparse(X), Y, bias = 1., dual = true, verbosity = :final) do t, alpha, v, g
+ret = svm(sparse(X), Y, bias = 1., dual = true) do t, alpha, v, g
   @test length(alpha) == size(X,2)
   @test length(g) == size(X,2)
   t % 50 == 0 && msg2("$t : $v", newline = true)

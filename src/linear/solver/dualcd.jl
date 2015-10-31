@@ -62,7 +62,7 @@
 # Specify the custom linear SVM solver
 
 """
-`DualCD <: SvmOptimizer`
+`DualCD <: SvmSolver`
 
 Description
 ============
@@ -82,7 +82,7 @@ References
 linear SVM." Proceedings of the 25th international conference on Machine learning.
 ACM, 2008. DOI=10.1145/1390156.1390208, http://doi.acm.org/10.1145/1390156.1390208
 """
-immutable DualCD{T} <: SvmOptimizer
+immutable DualCD{T} <: SvmSolver
   shrinking::Bool
   DualCD() = new(T)
 end
@@ -99,27 +99,25 @@ show(io::IO, ::DualCD{true}) = print(io, "DualCD(shrinking = true)")
 # - dense arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}(
     spec::CSVM{TKernel, TLoss, TReg},
     X::StridedMatrix, y⃗::StridedVector,
     ::DualCD{false},
-    predmodel::Union{LinearPred,AffinePred};
+    predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
     maxiter::Int = 1000,
     ftol::Real = 1.0e-4,
-    verbosity::Symbol = :none,
+    show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
     nargs...)
 
   # Do some housekeeping: use shorter variable names for the options
   C = spec.C::Float64
-  fit_intercept = typeof(predmodel) <: AffinePred
   has_callback = typeof(callback) <: Function
-  bias = fit_intercept ? Float64(predmodel.bias) : zero(Float64)
-  vbose = Regression.verbosity_level(verbosity)::Int
+  bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
 
   # Print log header if options.verbosity is set.
-  vbose >= Regression.VERBOSE_ITER && print_iter_head()
+  show_trace && print_iter_head()
 
   # Get the size of the design matrix
   #   k ... number of features
@@ -147,7 +145,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
   U, Dᵢᵢ = if typeof(spec.loss) <: HingeLoss
     # L1-SVM: U = C,  Dᵢᵢ = 0
     (C, zero(Float64))
-  else # typeof(loss) <: SqrHingeLoss
+  else # typeof(loss) <: L2HingeLoss
     # L2-SVM: U = ∞,  Dᵢᵢ = (2⋅C)⁻¹
     (typemax(Float64), Float64(.5 / C))
   end
@@ -157,7 +155,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
   # design matrix X.
   # Note: We skip defining Q and go straight for Q̄  = Q + D,
   #       because Q itself is not really required
-  Q̄ = if fit_intercept
+  Q̄ = if INTERCEPT
     vec(sum(X .^ 2, 1)  + bias ^ 2) + Dᵢᵢ
   else
     vec(sum(X .^ 2, 1)) + Dᵢᵢ
@@ -199,7 +197,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
 
       # The concrete computations of G depends on the intercept being present
       # The compiler will remove the if block
-      if typeof(predmodel) <: LinearPred
+      if !INTERCEPT
         G = y⃗[i] .* dot(w⃗, X̄[i]) - 1 + Dᵢᵢ .* ᾱᵢ
       else
         G = y⃗[i] .* (dot(w⃗, X̄[i]) + bias * w₀[1]) - 1. + Dᵢᵢ .* ᾱᵢ
@@ -229,7 +227,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
         # The compiler will remove the if block
         #   w⃗ = w⃗ + (αᵢ − ᾱᵢ)yᵢ ⋅ x⃗ᵢ
         #   w⃗ = w⃗ + (αᵢ − ᾱᵢ)yᵢ ⋅ x⃗ᵢ; w₀ += (αᵢ − ᾱᵢ)yᵢ * bias
-        if typeof(predmodel) <: LinearPred
+        if !INTERCEPT
           Base.BLAS.axpy!((α[i] - ᾱᵢ) * y⃗[i], X̄[i], w⃗)
         else
           tmp = (α[i] - ᾱᵢ) * y⃗[i]
@@ -247,13 +245,13 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
     # callback function this code will provide just that.
     # Note: If no callback function is provided then the compiler will be able
     #       to optimize the empty callback call away.
-    if typeof(callback) <: Function || vbose >= Regression.VERBOSE_ITER
+    if typeof(callback) <: Function || show_trace
       f = dot(w, w)
       for i in 1:l
         @inbounds f += α[i] * (Dᵢᵢ * α[i] - 2.)
       end
       f = f / 2.
-      vbose >= Regression.VERBOSE_ITER && print_iter(iteration, f, PGmax - PGmin)
+      show_trace && print_iter(iteration, f, PGmax - PGmin)
       stopped = _docallback(predmodel, dual, callback, iteration, w, w⃗, α, f, ▽)
     end
   end
@@ -265,12 +263,12 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
   end
   f = f / 2.
 
-  vbose >= Regression.VERBOSE_FINAL && Regression.print_final(iteration, f, converged)
+  #show_trace && Regression.print_final(iteration, f, converged)
   if dual
     DualSolution(α, w₀[1], f, iteration, converged)
   else
     # The size of the fitted w depends on if an intercept was fit or not
-    Solution(fit_intercept ? w : w[1:k], f, iteration, converged)
+    PrimalSolution(INTERCEPT ? w : w[1:k], f, iteration, converged)
   end
 end
 
@@ -281,27 +279,25 @@ end
 # - sparse arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}( 
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}( 
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{false},
-    predmodel::Union{LinearPred,AffinePred};
+    predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
     maxiter::Int = 1000,
     ftol::Real = 1.0e-4,
-    verbosity::Symbol = :none,
+    show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
     nargs...)
 
   # Do some housekeeping: use shorter variable names for the options
   C = spec.C::Float64
-  fit_intercept = typeof(predmodel) <: AffinePred
   has_callback = typeof(callback) <: Function
-  bias = fit_intercept ? Float64(predmodel.bias) : zero(Float64)
-  vbose = Regression.verbosity_level(verbosity)::Int
+  bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
 
   # Print log header if options.verbosity is set.
-  vbose >= Regression.VERBOSE_ITER && print_iter_head()
+  show_trace && print_iter_head()
 
   # Get the size of the design matrix
   #   k ... number of features
@@ -329,7 +325,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
   U, Dᵢᵢ = if typeof(spec.loss) <: HingeLoss
     # L1-SVM: U = C,  Dᵢᵢ = 0
     (C, zero(Float64))
-  else # typeof(loss) <: SqrHingeLoss
+  else # typeof(loss) <: L2HingeLoss
     # L2-SVM: U = ∞,  Dᵢᵢ = (2⋅C)⁻¹
     (typemax(Float64), convert(Float64, .5 / C))
   end
@@ -352,7 +348,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
     for j = tstart:tstop
       Q̄[i] += (X.nzval[j])^2
     end
-    if fit_intercept
+    if INTERCEPT
       Q̄[i] += bias ^ 2
     end
     Q̄[i] += Dᵢᵢ
@@ -392,7 +388,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
         G += w⃗[X.rowval[j]] * X.nzval[j]
       end
       # This does: "(... + bias * w₀)"
-      if typeof(predmodel) <: AffinePred
+      if INTERCEPT
         G += bias * w₀[1]
       end
       # This does: "yᵢ * (...)"
@@ -427,7 +423,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
           w⃗[X.rowval[j]] += tmp * X.nzval[j]
         end
         #   w₀ += (αᵢ − ᾱᵢ)yᵢ * bias
-        if typeof(predmodel) <: AffinePred
+        if INTERCEPT
           w₀[1] += tmp * bias
         end
       end
@@ -441,13 +437,13 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
     # callback function this code will provide just that.
     # Note: If no callback function is provided then the compiler will be able
     #       to optimize the empty callback call away.
-    if typeof(callback) <: Function || vbose >= Regression.VERBOSE_ITER
+    if typeof(callback) <: Function || show_trace
       f = dot(w, w)
       for i in 1:l
         @inbounds f += α[i] * (Dᵢᵢ * α[i] - 2.)
       end
       f = f / 2.
-      vbose >= Regression.VERBOSE_ITER && print_iter(iteration, f, PGmax - PGmin)
+      show_trace && print_iter(iteration, f, PGmax - PGmin)
       stopped = _docallback(predmodel, dual, callback, iteration, w, w⃗, α, f, ▽)
     end
   end
@@ -459,11 +455,11 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:SvmL1orL2Loss, TReg<:L2Reg}(
   end
   f = f / 2.
 
-  vbose >= Regression.VERBOSE_FINAL && Regression.print_final(iteration, f, converged)
+  #show_trace && Regression.print_final(iteration, f, converged)
   if dual
     DualSolution(α, w₀[1], f, iteration, converged)
   else
     # The size of the fitted w depends on if an intercept was fit or not
-    Solution(fit_intercept ? w : w[1:k], f, iteration, converged)
+    PrimalSolution(INTERCEPT ? w : w[1:k], f, iteration, converged)
   end
 end

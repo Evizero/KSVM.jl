@@ -1,39 +1,34 @@
 module KSVM
 
-using EmpiricalRisks: PredictionModel, LinearPred, AffinePred, MvLinearPred, MvAffinePred, Regularizer, Loss, HingeLoss, SqrHingeLoss, EpsilonInsLoss, SmoothedHingeLoss, SqrSmoothedHingeLoss, ModifiedHuberLoss, L1Reg, SqrL2Reg
-
 using Reexport
-@reexport using MLBase
+using LearnBase
 @reexport using MLKernels
 
 using Compat
 using ArrayViews
 using UnicodePlots
 using Base.LinAlg: BlasReal
-using Regression: DescentSolver, Solution, Options
 
 import StatsBase: predict, fit, fit!, coef, nobs, model_response
 import MLBase: classify, labelencode, labeldecode, groupindices
 import UnicodePlots: scatterplot
-import EmpiricalRisks
-import Regression
-import Regression: solve!, Solver
-import Base: print, show, convert
+import Base: print, show, convert, minimum
+import LearnBase: nclasses, labels, classdistribution
 
 export
 
     HingeLoss,
     L1HingeLoss,
     L2HingeLoss,
-    EpsilonInsLoss,
     SmoothedL1HingeLoss,
     ModifiedHuberLoss,
 
-    isclassifier,
-    decision_function,
+    EpsilonInsLoss,
+    L1EpsilonInsLoss,
+    L2EpsilonInsLoss,
 
-    L1Reg,
-    L2Reg,
+    L1Penalty,
+    L2Penalty,
 
     DualCD,
     DualCDWithShrinking,
@@ -43,6 +38,7 @@ export
       SVMRiskSpec,
         CSVM,
 
+    PrimalSolution,
     DualSolution,
 
     SVM,
@@ -55,6 +51,7 @@ export
 
     SVC,
     SVR,
+
     labels,
 
     details,
@@ -71,15 +68,18 @@ export
     ysv,
     predmodel,
     bias,
+
+    predict,
+    classify,
     accuracy,
 
     svm
 
 
-include("deprecate/bridge.jl")
+#include("deprecate/bridge.jl")
 include("common.jl")
-include("classencoding.jl")
 include("io.jl")
+include("primal.jl")
 include("dual.jl")
 include("svm_spec.jl")
 include("svm_model.jl")
