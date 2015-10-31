@@ -17,7 +17,7 @@ used for training the SVM in the primal/dual.
 Usage
 ======
 
-    svm(X, y; solver = DualCD(), loss = HingeLoss(), regtype = L2Penalty, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, armijo = 0.5, beta = 0.5, callback = nothing, verbosity = :none, nargs...)
+    svm(X, y; solver = DualCD(), kernel = ScalarProductKernel(), loss = HingeLoss(), regtype = L2Penalty, bias = 1, C = 1, dual = false, maxiter = 1000, ftol = 1.0e-6, xtol = 1.0e-6, grtol = 1.0e-9, callback = nothing, show_trace = false, nargs...)
 
     svm(X, Y; nargs...) do t, alpha, v, g
       # this is the callback function
@@ -39,8 +39,12 @@ this will either solve the linear SVM in the primal or dual formulation.
 In contrast to other frameworks, the algorithm does not determine if the solution 
 of the primal or dual problem is returned (see Details).
 
+- **`kernel`** : The kernel that should be used. The ScalarProductKernel denotes the special
+case of a linear SVM and allows for additional functionality and solvers that are specialized
+for the linear case.
+
 - **`loss`** : The utilized loss function. The typical loss functions for SVMs are
-`HingeLoss()` (L1-SVM), `L2HingeLoss()` (L2-SVM), or `SmoothedL1HingeLoss(h)` for classification,
+`L1HingeLoss()` (L1-SVM), `L2HingeLoss()` (L2-SVM), or `SmoothedL1HingeLoss(h)` for classification,
 and `EpsilonInsLoss(e)` or `L2EpsilonInsLoss(e)` for support vector regression.
 Note that in general each solvers is only able to deal with a subset of those
 loss functions and some combinations might not be supported.
@@ -60,7 +64,7 @@ more similar to a hard margin classifier.
 - **`dual`** : Boolean that specifies if the solution to the dual problem should be returned
 instead of the solution to the primal (default = false).
 
-- **`maxiter`** : Specifies the maximum number of iterations before the solver exits with the
+- **`iterations`** : Specifies the maximum number of iterations before the solver exits with the
 current (and probably suboptimal) solution.
 
 - **`ftol`** : Specifies the tolerance for the change of the objective function value.
@@ -126,7 +130,7 @@ Examples
     X = randn(d, n)   # generate input features
     y = sign(X'w[1:d] + w[d+1] + 0.2 * randn(n))  # generate (noisy) response
     model = svm(X, y) # Fit the linear SVM
-    y_hat = sign(predict(model, X))
+    y_hat = classify(model, X)
 
 References
 ===========

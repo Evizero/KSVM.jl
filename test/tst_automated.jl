@@ -11,8 +11,8 @@ function test_with_reference(X, y, ref)
     tnsv = ref[i, :nsv]
     acc = ref[i, :acc]
     msg2(ref[i, :solver], ", ", ref[i, :loss], ", C = "); @printf("%0.0e : ", C)
-    retdual = svm(X, y, C = C, ftol = tol, maxiter = 50_000, dual = true, solver = solver, regtype = regtype, loss = loss)
-    retprimal = svm(X, y, C = C, ftol = tol, maxiter = 50_000, dual = false, solver = solver, regtype = regtype, loss = loss)
+    retdual = svm(X, y, C = C, ftol = tol, iterations = 50_000, dual = true, solver = solver, regtype = regtype, loss = loss)
+    retprimal = svm(X, y, C = C, ftol = tol, iterations = 50_000, dual = false, solver = solver, regtype = regtype, loss = loss)
     println("niters = $(iterations(retdual)) (ref: $iter)")
     if C > 1.
       # Dual prediction can take a while if there are a lot of SV

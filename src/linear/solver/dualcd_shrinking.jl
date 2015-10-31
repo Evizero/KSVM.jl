@@ -70,7 +70,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     ::DualCD{true},
     predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
-    maxiter::Int = 1000,
+    iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
@@ -149,7 +149,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   M = typemin(Float64); m = typemax(Float64)
   M̄ = typemax(Float64); m̄ = typemin(Float64)
   converged = false; stopped = false
-  while !converged && iteration < maxiter && !stopped
+  while !converged && iteration < iterations && !stopped
 
     M = typemin(Float64)
     m = typemax(Float64)
@@ -285,7 +285,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     ::DualCD{true},
     predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
-    maxiter::Int = 1000,
+    iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
@@ -361,7 +361,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   M = typemin(Float64); m = typemax(Float64)
   M̄ = typemax(Float64); m̄ = typemin(Float64)
   converged = false; stopped = false
-  while !converged && iteration < maxiter && !stopped
+  while !converged && iteration < iterations && !stopped
 
     M = typemin(Float64)
     m = typemax(Float64)

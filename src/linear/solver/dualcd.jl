@@ -105,7 +105,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     ::DualCD{false},
     predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
-    maxiter::Int = 1000,
+    iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
@@ -180,7 +180,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   iteration = 0; G = zero(Float64); PG = zero(Float64)
   PGmin = zero(Float64); PGmax = zero(Float64)
   converged = false; stopped = false
-  while !converged && iteration < maxiter && !stopped
+  while !converged && iteration < iterations && !stopped
 
     # The bounds and difference of the projected gradient of the current iteration
     PGmin = typemax(Float64)
@@ -285,7 +285,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     ::DualCD{false},
     predmodel::UvPredicton{INTERCEPT};
     dual::Bool = false,
-    maxiter::Int = 1000,
+    iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
     callback::Union{Function,Void} = nothing,
@@ -357,7 +357,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   iteration = 0; G = zero(Float64); PG = zero(Float64)
   PGmin = zero(Float64); PGmax = zero(Float64)
   converged = false; stopped = false
-  while !converged && iteration < maxiter && !stopped
+  while !converged && iteration < iterations && !stopped
 
     # The bounds and difference of the projected gradient of the current iteration
     PGmin = typemax(Float64)

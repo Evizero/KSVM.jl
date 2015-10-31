@@ -80,6 +80,9 @@ this will either solve the linear SVM in the primal or dual formulation.
 In contrast to other frameworks, the algorithm does not determine if the solution 
 of the primal or dual problem is returned (see parameter `dual`).
 
+- **`kernel`** : The kernel that should be used. The ScalarProductKernel denotes the special
+case of a linear SVM and allows for additional functionality and solvers that are specialized for the linear case.
+
 - **`loss`** : The utilized loss function. The typical loss functions for SVMs are
 `HingeLoss()` (L1-SVM), `L2HingeLoss()` (L2-SVM), `SmoothedL1HingeLoss(h)`, or `ModifiedHuberLoss()` for classification,
 and `EpsilonInsLoss(e)`, or `L2EpsilonInsLoss(e)` for support vector regression.
