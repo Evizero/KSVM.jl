@@ -48,7 +48,7 @@ model = svm(X[:, train], y[train])     # Fit the linear SVM
 acc = accuracy(model, X[:, ~train], y[~train])
 ```
 
-![Iris Data SVM](https://cloud.githubusercontent.com/assets/10854026/10863507/1c5cf1e0-7fd0-11e5-8c72-cb30a4a67963.png)
+![Iris Data SVM](https://cloud.githubusercontent.com/assets/10854026/10865578/d5c448c4-800f-11e5-9df4-dcbd51a3f21d.png)
 
 _Note: The preview plot on the bottom is only provided if the dataset is small and lies in two dimensions_
 
@@ -89,7 +89,7 @@ For example the implementation of `DualCD` does only support
 `HingeLoss` and `L2HingeLoss`.
 
 - **`regtype`** : The type of regularization that should be used. In general this can either
-be `L1Reg` or `L2Reg`. Note that not all solver support `L1Reg`.
+be `L1Penalty` or `L2Penalty`. Note that not all solver support `L1Penalty`.
 
 - **`bias`** : The scaling factor of the bias. If set to 0, no intercept will be fitted.
 
