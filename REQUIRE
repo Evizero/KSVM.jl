@@ -1,0 +1,9 @@
+julia 0.4
+Compat
+Regression
+EmpiricalRisks
+ArrayViews
+StatsBase
+MLBase
+MLKernels
+UnicodePlots
