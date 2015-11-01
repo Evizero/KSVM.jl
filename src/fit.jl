@@ -2,9 +2,9 @@
 # General low-level interface to fit Kernel-SVMs
 
 @inline function fit(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector;
-             solver::SvmSolver = DualCD(),
-             loss::MarginBasedLoss = L2HingeLoss(),
-             nargs...)
+                     solver::SvmSolver = DualCD(),
+                     loss::MarginBasedLoss = L2HingeLoss(),
+                     nargs...)
   encoding = SignedClassEncoding(y⃗)
   t = labelencode(encoding, y⃗)
   model = fit(spec, X, t; solver = solver, loss = loss, nargs...)
@@ -14,8 +14,8 @@ end
 # --------------------------------------------------------------------------
 
 @inline function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-             solver::SvmSolver = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
-             nargs...)
+                              solver::SvmSolver = DualCD(), # TODO: This must not be DualCD for Kernel SVMs
+                              nargs...)
   fit(spec, X, y⃗, solver; nargs...)
 end
 
@@ -23,10 +23,10 @@ end
 # General low-level interface to fit Linear SVMs
 # For them it is possible to request the primal or dual solution
 
-function fit{T<:Real}(spec::LinearSVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
-                      solver::SvmSolver = DualCD(),
-                      dual::Bool = false,
-                      nargs...)
+@inline function fit{T<:Real}(spec::LinearSVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T};
+                              solver::SvmSolver = DualCD(),
+                              dual::Bool = false,
+                              nargs...)
   native_model = fit(spec, X, y⃗, solver; dual = dual, nargs...)
   # return the native_fit if it is the desired one
   dual == (typeof(native_model) <: DualSVM) && return native_model
@@ -49,11 +49,13 @@ end
 
 function fit{T<:Real}(spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector{T}, solver::SvmSolver;
                       bias::Real = 1.,
+                      dual::Bool = true,
                       nargs...)
-  d, l = size(X)
+  k, l = size(X)
   l == length(y⃗) || throw(DimensionMismatch("X and y⃗ have to have the same number of observations (columns)"))
   predtype = prediction_type(spec.loss, y⃗, bias)
-  solution = fit(spec, X, y⃗, solver, predtype; nargs...)
+  problem = dual ? DualProblem() : PrimalProblem()
+  solution = fit(spec, X, y⃗, solver, predtype, problem; nargs...)
   svmModel(spec, solution, LinearPredictor(bias), X, y⃗)
 end
 
@@ -63,19 +65,20 @@ end
 #     println("Iteration $t: $v")
 #   end
 
-function fit(cb::Function, spec::SVMSpec, X::AbstractMatrix, y::AbstractVector;
-             nargs...)
-  fit(spec, X, y; callback = cb, nargs...)
+@inline function fit(cb::Function, spec::SVMSpec, X::AbstractMatrix, y⃗::AbstractVector;
+                     nargs...)
+  fit(spec, X, y⃗; callback = cb, nargs...)
 end
 
 # ==========================================================================
 # Fallback for svm specific solver that are not implemented (for the given arguments)
 
-function fit{PM<:MvPredicton,T<:Real}(
+function fit{T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
     ::SvmSolver,
-    ::PM;
+    ::MvPredicton,
+    ::SvmProblem;
     nargs...)
   throw(MvNotNativelyHandled())
 end
@@ -86,7 +89,8 @@ function fit{T<:Real}(
     spec::SVMSpec,
     X::AbstractMatrix, y⃗::AbstractVector{T},
     solver::SvmSolver,
-    ::PredictionType;
+    ::PredictionType,
+    ::SvmProblem;
     nargs...)
   throw(ArgumentError("The types of the given arguments are not compatible with $(typeof(solver))"))
 end

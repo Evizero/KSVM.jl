@@ -124,7 +124,7 @@ Examples
 ### Random Data (adapted example from Regression.jl by Dahua Lin)
 
     using KSVM
-    d = 3             # Number of input dimensions
+    d = 2             # Number of input dimensions
     n = 100           # Number of pbservations
     w = randn(d+1)    # generate the weight vector
     X = randn(d, n)   # generate input features

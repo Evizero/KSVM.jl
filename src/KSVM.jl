@@ -7,7 +7,7 @@ using LearnBase
 using Compat
 using ArrayViews
 using UnicodePlots
-using Base.LinAlg: BlasReal
+using Base.LinAlg: BlasReal, axpy!
 
 import StatsBase: predict, fit, fit!, coef, nobs, model_response
 import MLBase: classify, labelencode, labeldecode, groupindices
@@ -32,6 +32,7 @@ export
 
     DualCD,
     DualCDWithShrinking,
+    Pegasos,
 
     LinearSVMSpec,
     SVMSpec,
@@ -88,5 +89,6 @@ include("fit.jl")
 include("interface.jl")
 include("linear/solver/dualcd.jl")
 include("linear/solver/dualcd_shrinking.jl")
+include("linear/solver/pegasos.jl")
 
 end

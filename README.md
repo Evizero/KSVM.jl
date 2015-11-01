@@ -164,7 +164,7 @@ Early inspiration by [Regression.jl](https://github.com/lindahua/Regression.jl)
 Neural Computation 19.5 (2007): 1155-1178. [link](http://www.mitpressjournals.org/doi/abs/10.1162/neco.2007.19.5.1155)
 
 - Hsieh, Cho-Jui, et al. "A dual coordinate descent method for large-scale 
-linear SVM." Proceedings of the 25th international conference on Machine learning. 
+linear SVM." Proceedings of the 25th International Conference on Machine learning (ICML-08). 
 ACM, 2008. [link](http://doi.acm.org/10.1145/1390156.1390208)
 
 - Platt, John. "Probabilistic outputs for support vector machines and comparisons 
@@ -172,3 +172,5 @@ to regularized likelihood methods." Advances in large margin classifiers 10.3 (1
 [link](http://citeseer.ist.psu.edu/viewdoc/summary?doi=10.1.1.41.1639)
 
 - Platt, John. "Fast training of support vector machines using sequential minimal optimization." Advances in kernel methods—support vector learning 3 (1999). [link](http://dl.acm.org/citation.cfm?id=299105)
+
+- Shalev-shwartz, Shai, et al. "Pegasos: Primal Estimated sub-GrAdient SOlver for SVM." Proceedings of the 24th International Conference on Machine Learning (ICML-07). 2007. [link](http://dx.doi.org/10.1145/1273496.1273598)

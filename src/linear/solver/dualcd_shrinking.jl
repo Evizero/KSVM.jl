@@ -68,8 +68,8 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     spec::CSVM{TKernel, TLoss, TReg},
     X::StridedMatrix, y⃗::StridedVector,
     ::DualCD{true},
-    predmodel::UvPredicton{INTERCEPT};
-    dual::Bool = false,
+    predmodel::UvPredicton{INTERCEPT},
+    problem::SvmProblem;
     iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
@@ -80,8 +80,9 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   C = spec.C::Float64
   has_callback = typeof(callback) <: Function
   bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
+  dual = typeof(problem) <: DualProblem
 
-  # Print log header if options.verbosity is set.
+  # Print log header if show_trace is set
   show_trace && print_iter_head()
 
   # Get the size of the design matrix
@@ -96,8 +97,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   w  = zeros(k + 1)
 
   # We generate two view to the a.ctual coefficients in w⃗ and the
-  # bias in w₀. This way we can treat them seperately while still store
-  # them in a way that is required by Regression.jl
+  # bias in w₀.
   w⃗  = view(w, 1:k)
   w₀ = view(w, k+1)
 
@@ -263,7 +263,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   end
   f = f / 2.
 
-  #show_trace && Regression.print_final(iteration, f, converged)
+  #show_trace && print_final(iteration, f, converged)
   if dual
     DualSolution(α, w₀[1], f, iteration, converged)
   else
@@ -283,8 +283,8 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{true},
-    predmodel::UvPredicton{INTERCEPT};
-    dual::Bool = false,
+    predmodel::UvPredicton{INTERCEPT},
+    problem::SvmProblem;
     iterations::Int = 1000,
     ftol::Real = 1.0e-4,
     show_trace::Bool = false,
@@ -295,8 +295,9 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   C = spec.C::Float64
   has_callback = typeof(callback) <: Function
   bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
+  dual = typeof(problem) <: DualProblem
 
-  # Print log header if options.verbosity is set.
+  # Print log header if show_trace is set
   show_trace && print_iter_head()
 
   # Get the size of the design matrix
@@ -311,8 +312,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   w  = zeros(k + 1)
 
   # We generate two view to the actual coefficients in w⃗ and the
-  # bias in w₀. This way we can treat them seperately while still store
-  # them in a way that is required by Regression.jl
+  # bias in w₀.
   w⃗  = view(w, 1:k)
   w₀ = view(w, k+1)
 
@@ -490,7 +490,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   end
   f = f / 2.
 
-  #show_trace && Regression.print_final(iteration, f, converged)
+  #show_trace && print_final(iteration, f, converged)
   if dual
     DualSolution(α, w₀[1], f, iteration, converged)
   else
