@@ -51,7 +51,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
   k, m = size(X)
 
   # Do some housekeeping: use shorter variable names for the options
-  lambda = Float64(1 / (spec.C * m))
+  lambda = Float64(2 / (spec.C * m))
   has_callback = typeof(callback) <: Function
   bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
   loss = spec.loss
@@ -107,11 +107,11 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
       ld = deriv(loss, y⃗[i], p)
 
       copy!(▽⃗, X̄[i])
-      broadcast!(*, ▽⃗, ▽⃗, -ld * y⃗[i])
+      broadcast!(*, ▽⃗, ▽⃗, -ld)
       axpy!(lambda, w⃗, ▽⃗)
       axpy!(eta, ▽⃗, w⃗)
       
-      nrm = min(1., (1/sqrt(lambda)) / vecnorm(w⃗))
+      nrm = min(1., (1/sqrt(lambda)) / vecnorm(w⃗, 2))
       broadcast!(*, w⃗, w⃗, nrm)
 
       t += 1

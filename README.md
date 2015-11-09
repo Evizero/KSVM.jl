@@ -120,7 +120,7 @@ current (and probably suboptimal) solution.
 
 - **`xtol`** : Specifies the tolerance for the change of the solution.
 
-- **`grtol`** : Specifies the tolerance for the change of the gradient norm.
+- **`gtol`** : Specifies the tolerance for the change of the gradient norm.
 
 - **`callback`** : The optional callback function with signature `f(i, w, v, G)`.
 If a callback is specified, then it will be called
