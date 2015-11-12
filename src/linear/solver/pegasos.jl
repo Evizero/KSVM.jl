@@ -9,7 +9,7 @@ Description
 ============
 
 Implementation of the primal sub-gradient solver for SVM
-as it was proposed in (Shalev-Shwartz et al., 2007). 
+as it was proposed in (Shalev-Shwartz et al., 2007).
 
 Usage
 ======
@@ -21,14 +21,14 @@ References
 
 - Shalev-shwartz, Shai, et al. "Pegasos: Primal Estimated sub-GrAdient SOlver for SVM."
 Proceedings of the 24th International Conference on Machine Learning (ICML-07). 2007.
-DOI=10.1145/1273496.1273598, http://dx.doi.org/10.1145/1273496.1273598, 
+DOI=10.1145/1273496.1273598, http://dx.doi.org/10.1145/1273496.1273598,
 """
 immutable Pegasos <: SvmSolver
 end
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear SVMs
-# This particular method is specialized for 
+# This particular method is specialized for
 # - dense arrays
 # - univariate prediction
 
@@ -55,6 +55,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
   has_callback = typeof(callback) <: Function
   bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
   loss = spec.loss
+  reg = L2Penalty(lambda)
 
   # Print log header if show_trace is set
   show_trace && print_iter_head()
@@ -62,16 +63,11 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
   # Initialize w to all zero.
   # Note: w has length k+1 to have space for the potential intercept.
   #       If no intercept is fit, the bias term will be ignored
-  w  = zeros(Float64, k + 1)
-
-  # We generate two view to the actual coefficients in w⃗ and the bias in w₀.
-  w⃗  = view(w, 1:k)
-  w₀ = view(w, k+1)
+  w  = zeros(Float64, INTERCEPT ? k+1 : k)
 
   # Buffer for the current gradient
-  ▽  = zeros(Float64, k + 1)
-  ▽⃗  = view(▽, 1:k)
-  ▽₀ = view(▽, k+1)
+  ▽  = zeros(Float64, INTERCEPT ? k+1 : k, 1)
+  ▽⃗  = view(▽, 1:length(▽), 1)
 
   # Indicies into the observations of X (columns)
   # This array defines the order in which the observations of X will be iterated over
@@ -89,11 +85,18 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     @inbounds X̄[i] = view(X, :, i)
   end
 
+  predictor = LinearPredictor(bias)
+  risk = RiskModel(predictor, loss, reg)
+  ŷ = zeros(1)
+  ȳ = zeros(1)
+
   t = 1; stopped = false
   while t < iterations && !stopped
 
     # Shuffle the indicies to improve convergence
     shuffle!(S)
+
+    minus_eta = -one(lambda) / (lambda * t)
 
     # loop over all observations
     @inbounds for i in S
@@ -101,23 +104,18 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         break;
       end
 
-      eta = one(lambda) / (lambda * t)
+      ȳ[1] = y⃗[i]
+      ŷ[1] = value(predictor, X̄[i], w)
+      grad!(▽, risk, X̄[i], w, ȳ, ŷ)
+      axpy!(minus_eta, ▽⃗, w)
 
-      p = dot(w⃗, X̄[i])
-      ld = deriv(loss, y⃗[i], p)
-
-      copy!(▽⃗, X̄[i])
-      broadcast!(*, ▽⃗, ▽⃗, -ld)
-      axpy!(lambda, w⃗, ▽⃗)
-      axpy!(eta, ▽⃗, w⃗)
-      
-      nrm = min(1., (1/sqrt(lambda)) / vecnorm(w⃗, 2))
-      broadcast!(*, w⃗, w⃗, nrm)
+      nrm = min(1., (1/sqrt(lambda)) / vecnorm(w, 2))
+      broadcast!(*, w, w, nrm)
 
       t += 1
     end
   end
 
-  f = 0.
-  PrimalSolution(INTERCEPT ? w : w[1:k], f, t, false)
+  f = value(risk, X, w, y⃗)
+  PrimalSolution(w, f, t, false)
 end
