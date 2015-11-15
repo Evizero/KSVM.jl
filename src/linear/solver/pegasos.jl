@@ -39,7 +39,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         predmodel::UvPredicton{INTERCEPT},
         problem::PrimalProblem;
         ftol::Real = 1.0e-4,
-        iterations::Int = 1000,
+        iterations::Int = 10000,
         show_trace::Bool = false,
         callback::Union{Function,Void} = nothing,
         nargs...)
@@ -90,7 +90,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     ŷ = zeros(1)
     ȳ = zeros(1)
     one_sqrtlambda = 1 / sqrt(lambda)
-    mone_lambda = -1 / lambda
+    minus_one_lambda = -1 / lambda
 
     t = 1; stopped = false
     while t < iterations && !stopped
@@ -98,7 +98,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         # Shuffle the indicies to improve convergence
         shuffle!(S)
 
-        minus_eta = mone_lambda / t
+        minus_eta = minus_one_lambda / t
 
         # loop over all observations
         @inbounds for i in S
@@ -114,6 +114,16 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
             nrm = one_sqrtlambda / vecnorm(w, 2)
             if nrm < 1
                 broadcast!(*, w, w, nrm)
+            end
+
+            # In case the user requested to print the learning process and/or provided
+            # callback function this code will provide just that.
+            # Note: If no callback function is provided then the compiler will be able
+            #       to optimize the empty callback call away.
+            if has_callback || show_trace
+                f = value(risk, X, w, y⃗)
+                show_trace && print_iter(t, f, vecnorm(w, 2))
+                stopped = _docallback(predmodel, callback, t, w, f, ▽)
             end
 
             t += 1

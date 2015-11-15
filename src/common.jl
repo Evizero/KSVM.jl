@@ -71,7 +71,7 @@ function _docallback(::PredictionType{false}, cb::Function, iter, w, w⃗, f, G)
 function _docallback(::PredictionType{true}, cb::Function, iter, w, w⃗, f, G) cb(iter, w, f, G) == :Exit end
 
 # Dual problem only
-function _docallback(::Any, ::Void, iter, α, f, G) end
+function _docallback(::Any, ::Void, iter, α, f, G) false end
 function _docallback(::PredictionType, cb::Function, iter, α, f, G) cb(iter, α, f, G) == :Exit end
 
 # Primal or dual problem
