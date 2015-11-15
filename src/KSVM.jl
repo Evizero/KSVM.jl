@@ -2,6 +2,8 @@ module KSVM
 
 using Reexport
 using LearnBase
+using LearnBase.LossFunctions
+using LearnBase.Penalties
 @reexport using MLKernels
 
 using Compat
