@@ -7,10 +7,10 @@ abstract SVMRiskSpec{TKernel<:Kernel, TLoss<:Loss} <: SVMSpec{TKernel}
 typealias SVCSpec{TKernel<:Kernel, TLoss<:MarginBasedLoss} SVMRiskSpec{TKernel, TLoss}
 typealias SVRSpec{TKernel<:Kernel, TLoss<:DistanceBasedLoss} SVMRiskSpec{TKernel, TLoss}
 
-abstract SVMFuncSpec{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMRiskSpec{TKernel, TLoss}
+abstract SVMRegRiskSpec{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMRiskSpec{TKernel, TLoss}
 
 """
-`CSVM <: SVMFuncSpec <: SVMRiskSpec <: SVMSpec`
+`CSVM <: SVMRegRiskSpec <: SVMRiskSpec <: SVMSpec`
 
 Description
 ============
@@ -38,12 +38,12 @@ See also
 `PrimalSVM`, `DualSVM`
 
 """
-immutable CSVM{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMFuncSpec{TKernel, TLoss, TReg}
+immutable CSVM{TKernel<:Kernel, TLoss<:Loss, TReg<:Penalty} <: SVMRegRiskSpec{TKernel, TLoss, TReg}
   kernel::TKernel
   loss::TLoss
   reg::TReg
   C::Float64
-  
+
   function CSVM(kernel::TKernel, loss::TLoss, reg::TReg)
     new(kernel, loss, reg, Float64(1 / reg.λ))
   end
