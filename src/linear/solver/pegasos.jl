@@ -1,3 +1,4 @@
+# Copyright (c) 2015: Christof Stocker
 
 # ==========================================================================
 # Specify the custom linear SVM solver
@@ -51,11 +52,13 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     k, m = size(X)
 
     # Do some housekeeping: use shorter variable names for the options
-    lambda = Float64(2 / (spec.C * m))
+    lambda = Float64(1 / (spec.C * m))
     has_callback = typeof(callback) <: Function
     bias = INTERCEPT ? Float64(predmodel.bias) : zero(Float64)
     loss = spec.loss
     reg = L2Penalty(lambda)
+    predictor = LinearPredictor(bias)
+    risk = EmpiricalRisk(predictor, loss, reg)
 
     # Print log header if show_trace is set
     show_trace && print_iter_head()
@@ -70,66 +73,47 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     ▽⃗  = view(▽, 1:length(▽), 1)
 
     # Indicies into the observations of X (columns)
-    # This array defines the order in which the observations of X will be iterated over
-    # Note: It will improve convergence if we permutate this array each iteration.
-    #       In order to achieve good performance we preallocate this array and shuffle
-    #       its elements inplace each itertation
-    S = collect(1:m)
+    S = rand(1:m, iterations)
 
     # Preallocate the vector-views into the design matrix to iterate over the observations
     # Note: We have to process each observation of X in every iteration.
     #       This means that even though arrayviews are cheap,
     #       it is still cheaper to preallocate them beforehand.
     X̄ = Array(ContiguousView{Float64,1,Array{Float64,2}}, m)
-    for i in S
+    for i in 1:m
         @inbounds X̄[i] = view(X, :, i)
     end
 
-    predictor = LinearPredictor(bias)
-    risk = RiskModel(predictor, loss, reg)
-    ŷ = zeros(1)
-    ȳ = zeros(1)
     one_sqrtlambda = 1 / sqrt(lambda)
     minus_one_lambda = -1 / lambda
 
-    t = 1; stopped = false
-    while t < iterations && !stopped
-
-        # Shuffle the indicies to improve convergence
-        shuffle!(S)
+    ybuffer = zeros(1, m)
+    t = 0; stopped = false
+    @inbounds for (t, i) in enumerate(S)
+        if stopped; break; end
 
         minus_eta = minus_one_lambda / t
 
-        # loop over all observations
-        @inbounds for i in S
-            if t >= iterations
-                break;
-            end
+        ŷ = value(predictor, X̄[i], w)
+        grad!(▽, risk, X̄[i], w, y⃗[i], ŷ)
+        axpy!(minus_eta, ▽⃗, w)
 
-            ȳ[1] = y⃗[i]
-            ŷ[1] = value(predictor, X̄[i], w)
-            grad!(▽, risk, X̄[i], w, ȳ, ŷ)
-            axpy!(minus_eta, ▽⃗, w)
+        nrm = one_sqrtlambda / vecnorm(w, 2)
+        if nrm < 1
+            broadcast!(*, w, w, nrm)
+        end
 
-            nrm = one_sqrtlambda / vecnorm(w, 2)
-            if nrm < 1
-                broadcast!(*, w, w, nrm)
-            end
-
-            # In case the user requested to print the learning process and/or provided
-            # callback function this code will provide just that.
-            # Note: If no callback function is provided then the compiler will be able
-            #       to optimize the empty callback call away.
-            if has_callback || show_trace
-                f = value(risk, X, w, y⃗)
-                show_trace && print_iter(t, f, vecnorm(w, 2))
-                stopped = _docallback(predmodel, callback, t, w, f, ▽)
-            end
-
-            t += 1
+        # In case the user requested to print the learning process and/or provided
+        # callback function this code will provide just that.
+        # Note: If no callback function is provided then the compiler will be able
+        #       to optimize the empty callback call away.
+        if has_callback || show_trace
+            f = value!(ybuffer, risk, X, w, y⃗)
+            show_trace && print_iter(t, f, vecnorm(w, 2))
+            stopped = _docallback(predmodel, callback, t, w, f, ▽)
         end
     end
 
-    f = value(risk, X, w, y⃗)
+    f = value!(ybuffer, risk, X, w, y⃗)
     PrimalSolution(w, f, t, false)
 end
