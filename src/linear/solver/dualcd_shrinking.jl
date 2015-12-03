@@ -5,21 +5,21 @@
 #
 # Copyright (c) 2013: John Myles White and other contributors.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a 
-# copy of this software and associated documentation files (the "Software"), 
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
 # to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-# and/or sell copies of the Software, and to permit persons to whom the 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
 # Software is furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included 
+# The above copyright notice and this permission notice shall be included
 # in all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 # USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
@@ -60,13 +60,13 @@
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear L1-, and L2-SVMs
-# This particular method is specialized for 
+# This particular method is specialized for
 # - dense arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}(
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT, T}(
     spec::CSVM{TKernel, TLoss, TReg},
-    X::StridedMatrix, y⃗::StridedVector,
+    X::StridedMatrix{T}, y⃗::StridedVector,
     ::DualCD{true},
     predmodel::UvPredicton{INTERCEPT},
     problem::SvmProblem;
@@ -137,7 +137,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   # Note: We have to process each observation of X in every iteration.
   #       This means that even though arrayviews are cheap,
   #       it is still cheaper to preallocate them beforehand.
-  X̄ = Array(ContiguousView{Float64,1,Array{Float64,2}}, l)
+  X̄ = Array(ContiguousView{T,1,Array{T,2}}, l)
   for i in indicies
     @inbounds X̄[i] = view(X, :, i)
   end
@@ -275,11 +275,11 @@ end
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear L1-, and L2-SVMs
-# This particular method is specialized for 
+# This particular method is specialized for
 # - sparse arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}( 
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}(
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{true},

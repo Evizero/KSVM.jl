@@ -99,9 +99,9 @@ show(io::IO, ::DualCD{true}) = print(io, "DualCD(shrinking = true)")
 # - dense arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}(
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT, T}(
     spec::CSVM{TKernel, TLoss, TReg},
-    X::StridedMatrix, y⃗::StridedVector,
+    X::StridedMatrix{T}, y⃗::StridedVector,
     ::DualCD{false},
     predmodel::UvPredicton{INTERCEPT},
     problem::SvmProblem;
@@ -172,7 +172,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
   # Note: We have to process each observation of X in every iteration.
   #       This means that even though arrayviews are cheap,
   #       it is still cheaper to preallocate them beforehand.
-  X̄ = Array(ContiguousView{Float64,1,Array{Float64,2}}, l)
+  X̄ = Array(ContiguousView{T,1,Array{T,2}}, l)
   for i in indicies
     @inbounds X̄[i] = view(X, :, i)
   end
