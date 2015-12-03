@@ -25,7 +25,10 @@ Proceedings of the 24th International Conference on Machine Learning (ICML-07). 
 DOI=10.1145/1273496.1273598, http://dx.doi.org/10.1145/1273496.1273598,
 """
 immutable Pegasos <: SvmSolver
+    penalize_bias::Bool
 end
+
+Pegasos(; penalize_bias::Bool = false) = Pegasos(penalize_bias)
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear SVMs
@@ -36,7 +39,7 @@ end
 function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, DistanceBasedLoss}, TReg<:L2Penalty, INTERCEPT}(
         spec::CSVM{TKernel, TLoss, TReg},
         X::StridedMatrix, y⃗::StridedVector,
-        ::Pegasos,
+        solver::Pegasos,
         predmodel::UvPredicton{INTERCEPT},
         problem::PrimalProblem;
         ftol::Real = 1.0e-4,
@@ -58,7 +61,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     loss = spec.loss
     reg = L2Penalty(lambda)
     predictor = LinearPredictor(bias)
-    risk = EmpiricalRisk(predictor, loss, reg)
+    risk = EmpiricalRisk(predictor, loss, reg, solver.penalize_bias)
 
     # Print log header if show_trace is set
     show_trace && print_iter_head()
@@ -73,6 +76,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     ▽⃗  = view(▽, 1:length(▽), 1)
 
     # Indicies into the observations of X (columns)
+    # They are random (uniform).
     S = rand(1:m, iterations)
 
     # Preallocate the vector-views into the design matrix to iterate over the observations
@@ -84,20 +88,28 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         @inbounds X̄[i] = view(X, :, i)
     end
 
+    # Precompute constants
     one_sqrtlambda = 1 / sqrt(lambda)
     minus_one_lambda = -1 / lambda
 
     ybuffer = zeros(1, m)
-    t = 0; stopped = false
-    @inbounds for (t, i) in enumerate(S)
+    iteration = 0; stopped = false
+    @inbounds for (iteration, i) in enumerate(S)
         if stopped; break; end
 
-        minus_eta = minus_one_lambda / t
+        # Compute current learning rate η
+        minus_eta = minus_one_lambda / iteration
 
+        # Compute prediction for the current observation
         ŷ = value(predictor, X̄[i], w)
+
+        # Compute the subgradient for the current observation
         grad!(▽, risk, X̄[i], w, y⃗[i], ŷ)
+
+        # Update the whole gradient using the subgradient
         axpy!(minus_eta, ▽⃗, w)
 
+        # Project the coefficients w on a ball
         nrm = one_sqrtlambda / vecnorm(w, 2)
         if nrm < 1
             broadcast!(*, w, w, nrm)
@@ -108,12 +120,15 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         # Note: If no callback function is provided then the compiler will be able
         #       to optimize the empty callback call away.
         if has_callback || show_trace
+            # compute the risk of the full training set.
+            # This might be a little much
             f = value!(ybuffer, risk, X, w, y⃗)
-            show_trace && print_iter(t, f, vecnorm(w, 2))
-            stopped = _docallback(predmodel, callback, t, w, f, ▽)
+            show_trace && print_iter(iteration, f, vecnorm(w, 2))
+            stopped = _docallback(predmodel, callback, iteration, w, f, ▽)
         end
     end
 
+    # Compute final objective value (risk)
     f = value!(ybuffer, risk, X, w, y⃗)
-    PrimalSolution(w, f, t, false)
+    PrimalSolution(w, f, iteration, false)
 end
