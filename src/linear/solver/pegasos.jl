@@ -31,6 +31,7 @@ Pegasos(; penalize_bias::Bool = false) = Pegasos(penalize_bias)
 # Implementation of primal sub-gradient solver for SVMs
 # This particular method is specialized for
 # - linear kernel
+# - primal solution
 # - dense arrays
 # - univariate prediction
 
@@ -78,7 +79,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     ▽  = zeros(Float64, INTERCEPT ? k+1 : k, 1)
     ▽⃗  = view(▽, 1:length(▽), 1)
 
-    # Indicies into the observations of X (columns)
+    # Indicies into the observations of X (columns) for each iteration
     # They are random (uniform) for optimal average convergence.
     S = rand(1:m, iterations)
 
@@ -92,11 +93,11 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     @inbounds for (iteration, i) in enumerate(S)
         if stopped; break; end
 
-        # Buffer arrayview into current observation,
-        # because we need it twice
+        # Vectorview into the current observation i
+        # We buffer it because we need it twice
         x⃗ᵢ = slice(X, :, i)
 
-        # Compute current learning rate η
+        # Compute current step size η
         #   -ηₜ = -1/(λ⋅t)
         minus_eta = minus_one_lambda / iteration
 
