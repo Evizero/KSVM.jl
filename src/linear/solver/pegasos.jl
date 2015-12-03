@@ -47,7 +47,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         show_trace::Bool = false,
         callback::Union{Function,Void} = nothing,
         nargs...)
-    islipschitzcont(spec.loss) || throw(ArgumentError("The loss has to be lipschitz continuous"))
+    islipschitzcont_deriv(spec.loss) || throw(ArgumentError("The loss has to have a lipschitz continuous derivative"))
 
     # Get the size of the design matrix
     #   k ... number of features
