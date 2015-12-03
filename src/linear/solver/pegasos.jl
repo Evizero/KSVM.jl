@@ -82,15 +82,6 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     # They are random (uniform) for optimal average convergence.
     S = rand(1:m, iterations)
 
-    # Preallocate the vector-views into the design matrix to iterate over the observations
-    # Note: We have to process each observation of X in every iteration.
-    #       This means that even though arrayviews are cheap,
-    #       it is still cheaper to preallocate them beforehand.
-    X̄ = Array(ContiguousView{Float64,1,Array{Float64,2}}, m)
-    for i in 1:m
-        @inbounds X̄[i] = view(X, :, i)
-    end
-
     # Precompute constants
     #   1/√(λ)
     one_sqrtlambda = 1 / sqrt(lambda)
@@ -101,17 +92,21 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     @inbounds for (iteration, i) in enumerate(S)
         if stopped; break; end
 
+        # Buffer arrayview into current observation,
+        # because we need it twice
+        x⃗ᵢ = slice(X, :, i)
+
         # Compute current learning rate η
         #   -ηₜ = -1/(λ⋅t)
         minus_eta = minus_one_lambda / iteration
 
         # Compute prediction for the current observation
         #   ŷ = h(x⃗ᵢ,w⃗ₜ)
-        ŷ = value(predictor, X̄[i], w) # Real number !
+        ŷ = value(predictor, x⃗ᵢ, w) # Real number !
 
         # Compute the subgradient for the current observation
         #   ▽ₜ = λ⋅w⃗ₜ + L'(yᵢ, h(x⃗ᵢ,w⃗ₜ))⋅x⃗ᵢ
-        grad!(▽, risk, X̄[i], w, y⃗[i], ŷ)
+        grad!(▽, risk, x⃗ᵢ, w, y⃗[i], ŷ)
 
         # Update the coefficients using the the current subgradient
         #   w⃗ₜ₊₁ = w⃗ₜ - ηₜ⋅▽⃗ₜ
