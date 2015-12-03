@@ -55,7 +55,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     # Get the size of the design matrix
     #   k ... number of features
     #   m ... number of observations
-    k, m = size(X)Y +
+    k, m = size(X)
 
     # Do some housekeeping: use shorter variable names for the options
     lambda = Float64(1 / (spec.C * m))

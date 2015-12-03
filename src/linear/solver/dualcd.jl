@@ -5,21 +5,21 @@
 #
 # Copyright (c) 2013: John Myles White and other contributors.
 #
-# Permission is hereby granted, free of charge, to any person obtaining a 
-# copy of this software and associated documentation files (the "Software"), 
+# Permission is hereby granted, free of charge, to any person obtaining a
+# copy of this software and associated documentation files (the "Software"),
 # to deal in the Software without restriction, including without limitation
-# the rights to use, copy, modify, merge, publish, distribute, sublicense, 
-# and/or sell copies of the Software, and to permit persons to whom the 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the
 # Software is furnished to do so, subject to the following conditions:
 #
-# The above copyright notice and this permission notice shall be included 
+# The above copyright notice and this permission notice shall be included
 # in all copies or substantial portions of the Software.
 #
-# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, 
-# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF 
-# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. 
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+# EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+# MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
 # IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
 # OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 # USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
@@ -67,8 +67,8 @@
 Description
 ============
 
-Implementation of the dual coordinate descent algorithm as it 
-was proposed in (Hsieh et al., 2008). 
+Implementation of the dual coordinate descent algorithm as it
+was proposed in (Hsieh et al., 2008).
 
 Usage
 ======
@@ -95,7 +95,7 @@ show(io::IO, ::DualCD{true}) = print(io, "DualCD(shrinking = true)")
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear L1-, and L2-SVMs
-# This particular method is specialized for 
+# This particular method is specialized for
 # - dense arrays
 # - univariate prediction
 
@@ -247,7 +247,7 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penal
     #       to optimize the empty callback call away.
     if typeof(callback) <: Function || show_trace
       f = dot(w, w)
-      for i in 1:l
+      @simd for i in 1:l
         @inbounds f += α[i] * (Dᵢᵢ * α[i] - 2.)
       end
       f = f / 2.
@@ -275,11 +275,11 @@ end
 
 # ==========================================================================
 # Implementation of dual coordinate descent for linear L1-, and L2-SVMs
-# This particular method is specialized for 
+# This particular method is specialized for
 # - sparse arrays
 # - univariate prediction
 
-function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}( 
+function fit{TKernel<:ScalarProductKernel, TLoss<:L1orL2HingeLoss, TReg<:L2Penalty, INTERCEPT}(
     spec::CSVM{TKernel, TLoss, TReg},
     X::SparseMatrixCSC, y⃗::StridedVector,
     ::DualCD{false},
