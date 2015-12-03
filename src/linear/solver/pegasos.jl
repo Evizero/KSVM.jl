@@ -1,8 +1,5 @@
 # Copyright (c) 2015: Christof Stocker
 
-# ==========================================================================
-# Specify the custom linear SVM solver
-
 """
 `Pegasos <: SvmSolver`
 
@@ -31,8 +28,9 @@ end
 Pegasos(; penalize_bias::Bool = false) = Pegasos(penalize_bias)
 
 # ==========================================================================
-# Implementation of dual coordinate descent for linear SVMs
+# Implementation of primal sub-gradient solver for SVMs
 # This particular method is specialized for
+# - linear kernel
 # - dense arrays
 # - univariate prediction
 
@@ -49,10 +47,15 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         nargs...)
     islipschitzcont_deriv(spec.loss) || throw(ArgumentError("The loss has to have a lipschitz continuous derivative"))
 
+    # The risk functional needs to be strongly convex,
+    # but since we limit the regularizer to L2Penalty,
+    # it suffices to test the loss for convexity.
+    isconvex(spec.loss) || throw(ArgumentError("The loss has to be convex"))
+
     # Get the size of the design matrix
     #   k ... number of features
     #   m ... number of observations
-    k, m = size(X)
+    k, m = size(X)Y +
 
     # Do some housekeeping: use shorter variable names for the options
     lambda = Float64(1 / (spec.C * m))
@@ -71,12 +74,12 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     #       If no intercept is fit, the bias term will be ignored
     w  = zeros(Float64, INTERCEPT ? k+1 : k)
 
-    # Buffer for the current gradient
+    # Storage for the current gradient
     ▽  = zeros(Float64, INTERCEPT ? k+1 : k, 1)
     ▽⃗  = view(▽, 1:length(▽), 1)
 
     # Indicies into the observations of X (columns)
-    # They are random (uniform).
+    # They are random (uniform) for optimal average convergence.
     S = rand(1:m, iterations)
 
     # Preallocate the vector-views into the design matrix to iterate over the observations
@@ -89,29 +92,36 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
     end
 
     # Precompute constants
+    #   1/√(λ)
     one_sqrtlambda = 1 / sqrt(lambda)
+    #   -1/λ
     minus_one_lambda = -1 / lambda
 
-    ybuffer = zeros(1, m)
     iteration = 0; stopped = false
     @inbounds for (iteration, i) in enumerate(S)
         if stopped; break; end
 
         # Compute current learning rate η
+        #   -ηₜ = -1/(λ⋅t)
         minus_eta = minus_one_lambda / iteration
 
         # Compute prediction for the current observation
-        ŷ = value(predictor, X̄[i], w)
+        #   ŷ = h(x⃗ᵢ,w⃗ₜ)
+        ŷ = value(predictor, X̄[i], w) # Real number !
 
         # Compute the subgradient for the current observation
+        #   ▽ₜ = λ⋅w⃗ₜ + L'(yᵢ, h(x⃗ᵢ,w⃗ₜ))⋅x⃗ᵢ
         grad!(▽, risk, X̄[i], w, y⃗[i], ŷ)
 
-        # Update the whole gradient using the subgradient
-        axpy!(minus_eta, ▽⃗, w)
+        # Update the coefficients using the the current subgradient
+        #   w⃗ₜ₊₁ = w⃗ₜ - ηₜ⋅▽⃗ₜ
+        axpy!(minus_eta, ▽⃗, w) # axpy!(a,X,Y) <=> Y = Y + a⋅X
 
         # Project the coefficients w on a ball
+        #   nrm = (1/√(λ)) / ||w⃗ₜ₊₁||
         nrm = one_sqrtlambda / vecnorm(w, 2)
         if nrm < 1
+            # w⃗ₜ₊₁ = min(1, nrm) ⋅ w⃗ₜ₊₁
             broadcast!(*, w, w, nrm)
         end
 
@@ -120,15 +130,14 @@ function fit{TKernel<:ScalarProductKernel, TLoss<:Union{MarginBasedLoss, Distanc
         # Note: If no callback function is provided then the compiler will be able
         #       to optimize the empty callback call away.
         if has_callback || show_trace
-            # compute the risk of the full training set.
-            # This might be a little much
-            f = value!(ybuffer, risk, X, w, y⃗)
+            # compute the risk of the current observation.
+            f = value(risk, X, w, y⃗[i], ŷ)
             show_trace && print_iter(iteration, f, vecnorm(w, 2))
             stopped = _docallback(predmodel, callback, iteration, w, f, ▽)
         end
     end
 
-    # Compute final objective value (risk)
-    f = value!(ybuffer, risk, X, w, y⃗)
+    # Compute final objective value (risk) for the whole trainingset
+    f = value(risk, X, w, y⃗)
     PrimalSolution(w, f, iteration, false)
 end
