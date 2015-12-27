@@ -1,6 +1,6 @@
 # KSVM
 
-**UNDER CONSTRUCTION**
+**UNDER CONSTRUCTION** (small break until mid Jan)
 
 A Julia package for research and application of linear- and non-linear Support Vector Machines (SVM).
 
