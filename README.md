@@ -3,7 +3,7 @@
 [![Project Status: Suspended - Initial development has started, but there has not yet been a stable, usable release; work has been stopped for the time being but the author(s) intend on resuming work.](http://www.repostatus.org/badges/latest/suspended.svg)](http://www.repostatus.org/#suspended)
 [![License](http://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat)](LICENSE.md)
 
-**UNDER CONSTRUCTION** (work-related hiatus)
+# **DEVELOPMENT CURRENTLY ON HOLD**
 
 A Julia package for research and application of linear- and non-linear Support Vector Machines (SVM).
 
